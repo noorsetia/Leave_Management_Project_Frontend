@@ -1,0 +1,87 @@
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests automatically
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle response errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  signup: (userData) => api.post('/auth/signup', userData),
+  getCurrentUser: (token) => {
+    if (token) {
+      // For OAuth callback - use provided token
+      return api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+    // Normal case - use token from localStorage (via interceptor)
+    return api.get('/auth/me');
+  },
+};
+
+// Leave Request API
+export const leaveAPI = {
+  createLeaveRequest: (data) => api.post('/leave/request', data),
+  getMyLeaveRequests: () => api.get('/leave/my-requests'),
+  getAllLeaveRequests: () => api.get('/leave/all-requests'),
+  getLeaveRequestById: (id) => api.get(`/leave/request/${id}`),
+  updateLeaveStatus: (id, data) => api.patch(`/leave/request/${id}/status`, data),
+};
+
+// Assessment API
+export const assessmentAPI = {
+  getQuizForLeave: (leaveRequestId) => api.get(`/assessment/quiz/${leaveRequestId}`),
+  submitQuiz: (leaveRequestId, answers) => api.post(`/assessment/quiz/${leaveRequestId}`, { answers }),
+  getCodingTest: (leaveRequestId) => api.get(`/assessment/coding/${leaveRequestId}`),
+  submitCodingTest: (leaveRequestId, code) => api.post(`/assessment/coding/${leaveRequestId}`, { code }),
+  getAssessmentResult: (leaveRequestId) => api.get(`/assessment/result/${leaveRequestId}`),
+};
+
+// Attendance API
+export const attendanceAPI = {
+  getMyAttendance: () => api.get('/attendance/my-attendance'),
+  getStudentAttendance: (studentId) => api.get(`/attendance/student/${studentId}`),
+  updateAttendance: (studentId, data) => api.patch(`/attendance/student/${studentId}`, data),
+};
+
+// Dashboard API
+export const dashboardAPI = {
+  getStudentStats: () => api.get('/dashboard/student-stats'),
+  getTeacherStats: () => api.get('/dashboard/teacher-stats'),
+};
+
+export default api;
