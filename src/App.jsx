@@ -7,6 +7,9 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import OAuthCallback from './pages/OAuthCallback';
+import ApplyLeave from './pages/ApplyLeave';
+import MyLeaves from './pages/MyLeaves';
+import TeacherLeaveManagement from './pages/TeacherLeaveManagement';
 
 // Components
 import StudentDashboard from './components/StudentDashboard';
@@ -104,6 +107,22 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/student/apply-leave"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <ApplyLeave />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/my-leaves"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <MyLeaves />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Teacher Routes */}
       <Route
@@ -111,6 +130,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="teacher">
             <TeacherDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/leave-requests"
+        element={
+          <ProtectedRoute requiredRole="teacher">
+            <TeacherLeaveManagement />
           </ProtectedRoute>
         }
       />

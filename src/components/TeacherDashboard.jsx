@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { leaveAPI, dashboardAPI } from '../utils/api';
 import { 
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 const TeacherDashboard = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [leaveRequests, setLeaveRequests] = useState([]);

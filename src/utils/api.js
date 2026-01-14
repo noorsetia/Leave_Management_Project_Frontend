@@ -55,11 +55,13 @@ export const authAPI = {
 
 // Leave Request API
 export const leaveAPI = {
-  createLeaveRequest: (data) => api.post('/leave/request', data),
-  getMyLeaveRequests: () => api.get('/leave/my-requests'),
-  getAllLeaveRequests: () => api.get('/leave/all-requests'),
-  getLeaveRequestById: (id) => api.get(`/leave/request/${id}`),
-  updateLeaveStatus: (id, data) => api.patch(`/leave/request/${id}/status`, data),
+  createLeaveRequest: (data) => api.post('/leave', data),
+  getMyLeaves: () => api.get('/leave/my-leaves'),
+  getAllLeaves: (status) => api.get('/leave', { params: { status } }),
+  getLeaveById: (id) => api.get(`/leave/${id}`),
+  updateLeaveStatus: (id, data) => api.put(`/leave/${id}/status`, data),
+  deleteLeaveRequest: (id) => api.delete(`/leave/${id}`),
+  getLeaveStats: () => api.get('/leave/stats'),
 };
 
 // Assessment API
