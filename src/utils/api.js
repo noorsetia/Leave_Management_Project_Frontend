@@ -86,4 +86,18 @@ export const dashboardAPI = {
   getTeacherStats: () => api.get('/dashboard/teacher-stats'),
 };
 
+// Quiz API
+export const quizAPI = {
+  getAllQuizzes: () => api.get('/quiz'),
+  getQuiz: (id) => api.get(`/quiz/${id}`),
+  submitQuiz: (id, data) => api.post(`/quiz/${id}/submit`, data),
+  getMyAttempts: () => api.get('/quiz/my-attempts'),
+  getQuizResults: (id) => api.get(`/quiz/${id}/results`),
+  // Teacher routes
+  createQuiz: (data) => api.post('/quiz/create', data),
+  getAllQuizzesForTeacher: () => api.get('/quiz/teacher/all'),
+  updateQuiz: (id, data) => api.put(`/quiz/${id}`, data),
+  deleteQuiz: (id) => api.delete(`/quiz/${id}`),
+};
+
 export default api;

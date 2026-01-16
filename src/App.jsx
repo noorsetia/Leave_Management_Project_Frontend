@@ -10,6 +10,9 @@ import OAuthCallback from './pages/OAuthCallback';
 import ApplyLeave from './pages/ApplyLeave';
 import MyLeaves from './pages/MyLeaves';
 import TeacherLeaveManagement from './pages/TeacherLeaveManagement';
+import QuizList from './pages/QuizList';
+import TakeQuiz from './pages/TakeQuiz';
+import QuizResults from './pages/QuizResults';
 
 // Components
 import StudentDashboard from './components/StudentDashboard';
@@ -120,6 +123,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="student">
             <MyLeaves />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/quizzes"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <QuizList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/quiz/:id"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <TakeQuiz />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/quiz/:id/results"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <QuizResults />
           </ProtectedRoute>
         }
       />

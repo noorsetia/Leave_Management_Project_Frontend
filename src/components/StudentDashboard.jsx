@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { leaveAPI, attendanceAPI, dashboardAPI } from '../utils/api';
+import { leaveAPI, attendanceAPI, dashboardAPI, quizAPI } from '../utils/api';
 import { 
   Calendar, 
   TrendingUp, 
@@ -13,7 +13,10 @@ import {
   BookOpen,
   BarChart3,
   LogOut,
-  FileText
+  FileText,
+  RefreshCw,
+  Award,
+  Brain
 } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -22,15 +25,38 @@ const StudentDashboard = () => {
   const [leaveStats, setLeaveStats] = useState(null);
   const [attendance, setAttendance] = useState(null);
   const [recentLeaves, setRecentLeaves] = useState([]);
+  const [quizStats, setQuizStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Auto-refresh data every 15 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchDashboardData(true); // Silent refresh
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchDashboardData = async () => {
+  // Refresh data when window gains focus (user comes back to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchDashboardData(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const fetchDashboardData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       
       // Fetch leave stats and recent leaves
       const [statsRes, leavesRes] = await Promise.all([
@@ -49,10 +75,30 @@ const StudentDashboard = () => {
         // Set default attendance if not found
         setAttendance({ attendancePercentage: 0, totalClasses: 0, attendedClasses: 0, isEligible: false });
       }
+
+      // Fetch quiz statistics
+      try {
+        const quizAttemptsRes = await quizAPI.getMyAttempts();
+        const attempts = quizAttemptsRes.data.attempts || [];
+        const totalAttempts = attempts.length;
+        const passedAttempts = attempts.filter(a => a.passed).length;
+        const avgScore = totalAttempts > 0 
+          ? (attempts.reduce((sum, a) => sum + a.percentage, 0) / totalAttempts).toFixed(1)
+          : 0;
+        
+        setQuizStats({
+          totalAttempts,
+          passedAttempts,
+          avgScore
+        });
+      } catch (error) {
+        setQuizStats({ totalAttempts: 0, passedAttempts: 0, avgScore: 0 });
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -97,17 +143,27 @@ const StudentDashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
               <p className="text-gray-600">Welcome back, {user?.name}!</p>
             </div>
-            <button onClick={logout} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-all duration-200 flex items-center">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </button>
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => fetchDashboardData(false)}
+                className={`relative p-2 text-gray-600 hover:text-gray-900 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+                title="Refresh data"
+                disabled={refreshing}
+              >
+                <RefreshCw className="w-6 h-6" />
+              </button>
+              <button onClick={logout} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-all duration-200 flex items-center">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           {/* Attendance Card */}
           <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
             <div className="flex items-center justify-between mb-4">
@@ -124,6 +180,40 @@ const StudentDashboard = () => {
               <div className={`text-sm font-semibold ${
                 (attendance?.attendancePercentage || 0) >= 75 ? 'text-green-600' : 'text-red-600'
               }`}>
+                {(attendance?.attendancePercentage || 0) >= 75 ? 'Eligible' : 'Not Eligible'}
+              </div>
+            </div>
+            <div className="mt-4 bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  (attendance?.attendancePercentage || 0) >= 75 ? 'bg-green-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${attendance?.attendancePercentage || 0}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Quiz Stats Card */}
+          <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-600">Quiz Score</h3>
+              <Award className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-3xl font-bold text-gray-900">
+                  {quizStats?.avgScore || 0}%
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Average score</p>
+              </div>
+              <div className="text-sm font-semibold text-purple-600">
+                {quizStats?.passedAttempts || 0}/{quizStats?.totalAttempts || 0}
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              {quizStats?.totalAttempts || 0} quiz{(quizStats?.totalAttempts || 0) !== 1 ? 'zes' : ''} attempted
+            </p>
+          </div>
                 {(attendance?.attendancePercentage || 0) >= 75 ? 'Eligible' : 'Not Eligible'}
               </div>
             </div>
@@ -177,8 +267,8 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="mb-8 flex gap-4">
+        {/* Action Buttons */}
+        <div className="mb-8 flex gap-4 flex-wrap">
           <button 
             onClick={() => navigate('/student/apply-leave')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center"
@@ -192,6 +282,13 @@ const StudentDashboard = () => {
           >
             <FileText className="w-5 h-5 mr-2" />
             View My Leaves
+          </button>
+          <button 
+            onClick={() => navigate('/student/quizzes')}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center"
+          >
+            <Brain className="w-5 h-5 mr-2" />
+            Take Quiz
           </button>
         </div>
 

@@ -19,10 +19,11 @@ const MyLeaves = () => {
   const fetchLeaves = async () => {
     try {
       const response = await leaveAPI.getMyLeaves();
-      setLeaves(response.data.leaveRequests);
+      setLeaves(response.data.leaveRequests || []);
     } catch (err) {
       setError('Failed to fetch leave requests');
       console.error(err);
+      setLeaves([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -43,11 +44,28 @@ const MyLeaves = () => {
     }
 
     try {
-      await leaveAPI.deleteLeaveRequest(leaveId);
+      // Optimistically remove from UI
+      const deletedLeave = leaves.find(leave => leave._id === leaveId);
       setLeaves(leaves.filter(leave => leave._id !== leaveId));
-      fetchStats(); // Refresh stats
+      
+      // Update stats optimistically
+      if (stats && deletedLeave) {
+        setStats({
+          ...stats,
+          total: stats.total - 1,
+          [deletedLeave.status]: stats[deletedLeave.status] - 1
+        });
+      }
+
+      // Delete from server
+      await leaveAPI.deleteLeaveRequest(leaveId);
+      
+      // Refresh data to ensure sync
+      await Promise.all([fetchLeaves(), fetchStats()]);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete leave request');
+      // Refresh data on error to restore correct state
+      await Promise.all([fetchLeaves(), fetchStats()]);
     }
   };
 

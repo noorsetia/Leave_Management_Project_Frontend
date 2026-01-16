@@ -13,7 +13,8 @@ import {
   Bell,
   LogOut,
   Eye,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 
 const TeacherDashboard = () => {
@@ -23,31 +24,58 @@ const TeacherDashboard = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Auto-refresh data every 15 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchDashboardData(true); // Silent refresh
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     filterRequests();
   }, [activeFilter, leaveRequests]);
 
-  const fetchDashboardData = async () => {
+  // Refresh data when window gains focus (user comes back to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchDashboardData(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const fetchDashboardData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+      
       const [statsRes, leavesRes] = await Promise.all([
         dashboardAPI.getTeacherStats(),
-        leaveAPI.getAllLeaveRequests(),
+        leaveAPI.getAllLeaves(),
       ]);
 
       setStats(statsRes.data);
-      setLeaveRequests(leavesRes.data);
+      // Handle the API response structure: { count, leaveRequests }
+      setLeaveRequests(leavesRes.data.leaveRequests || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      // Set empty array on error to prevent map error
+      setLeaveRequests([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -101,10 +129,18 @@ const TeacherDashboard = () => {
               <p className="text-gray-600">Welcome back, {user?.name}!</p>
             </div>
             <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => fetchDashboardData(false)}
+                className={`relative p-2 text-gray-600 hover:text-gray-900 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+                title="Refresh data"
+                disabled={refreshing}
+              >
+                <RefreshCw className="w-6 h-6" />
+              </button>
               <button className="relative p-2 text-gray-600 hover:text-gray-900">
                 <Bell className="w-6 h-6" />
                 {stats?.pendingRequests > 0 && (
-                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
                     {stats.pendingRequests}
                   </span>
                 )}
@@ -133,16 +169,19 @@ const TeacherDashboard = () => {
             <p className="text-xs text-gray-500 mt-1">This semester</p>
           </div>
 
-          {/* Pending Card */}
-          <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+          {/* Pending Card - Clickable */}
+          <div 
+            onClick={() => navigate('/teacher/leave-requests')}
+            className="bg-yellow-50 rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl cursor-pointer hover:scale-105"
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Pending Review</h3>
+              <h3 className="text-sm font-medium text-yellow-700">Pending Review</h3>
               <Clock className="w-5 h-5 text-yellow-600" />
             </div>
-            <div className="text-3xl font-bold text-yellow-600">
+            <div className="text-3xl font-bold text-yellow-900">
               {stats?.pendingRequests || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Awaiting your review</p>
+            <p className="text-xs text-yellow-700 mt-1 font-medium">Click to review →</p>
           </div>
 
           {/* Approved Card */}
@@ -168,6 +207,22 @@ const TeacherDashboard = () => {
             </div>
             <p className="text-xs text-gray-500 mt-1">Declined requests</p>
           </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/teacher/leave-requests')}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <Bell className="w-5 h-5" />
+            View All Leave Requests
+            {stats?.pendingRequests > 0 && (
+              <span className="ml-2 bg-red-500 text-white text-sm font-bold px-2 py-1 rounded-full">
+                {stats.pendingRequests}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Filter Tabs */}
@@ -313,7 +368,7 @@ const TeacherDashboard = () => {
 
         {/* Quick Stats */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-6">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Average Approval Rate</h3>
               <TrendingUp className="w-6 h-6" />
@@ -323,7 +378,7 @@ const TeacherDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl shadow-lg p-6">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Total Students</h3>
               <Users className="w-6 h-6" />
@@ -333,7 +388,7 @@ const TeacherDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-lg p-6">
+          <div className="bg-linear-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Today's Requests</h3>
               <Calendar className="w-6 h-6" />

@@ -13,7 +13,8 @@ import {
   FileText,
   LogOut,
   Search,
-  Filter
+  Filter,
+  RefreshCw
 } from 'lucide-react';
 
 const TeacherLeaveManagement = () => {
@@ -31,20 +32,43 @@ const TeacherLeaveManagement = () => {
     rejected: 0
   });
   const [processingId, setProcessingId] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchLeaves();
+    
+    // Auto-refresh every 15 seconds
+    const interval = setInterval(() => {
+      fetchLeaves(true); // Silent refresh
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     filterLeaves();
   }, [leaves, filter, searchTerm]);
 
-  const fetchLeaves = async () => {
+  // Refresh when window gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchLeaves(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const fetchLeaves = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+      
       const response = await leaveAPI.getAllLeaves();
-      const allLeaves = response.data.leaveRequests;
+      const allLeaves = response.data.leaveRequests || [];
       setLeaves(allLeaves);
 
       // Calculate stats
@@ -57,8 +81,11 @@ const TeacherLeaveManagement = () => {
       setStats(newStats);
     } catch (error) {
       console.error('Error fetching leaves:', error);
+      // Set empty array on error to prevent crashes
+      setLeaves([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -86,21 +113,35 @@ const TeacherLeaveManagement = () => {
     
     setProcessingId(leaveId);
     try {
+      // Optimistically update UI
+      const updatedLeaves = leaves.map(leave =>
+        leave._id === leaveId
+          ? { ...leave, status: 'approved', reviewedBy: user, teacherRemarks: remarks }
+          : leave
+      );
+      setLeaves(updatedLeaves);
+      
+      // Update stats optimistically
+      setStats({
+        ...stats,
+        pending: stats.pending - 1,
+        approved: stats.approved + 1
+      });
+
+      // Send to server
       await leaveAPI.updateLeaveStatus(leaveId, {
         status: 'approved',
         teacherRemarks: remarks || 'Approved'
       });
       
-      // Update local state
-      setLeaves(leaves.map(leave =>
-        leave._id === leaveId
-          ? { ...leave, status: 'approved', reviewedBy: user, teacherRemarks: remarks }
-          : leave
-      ));
+      // Refresh data to ensure sync
+      await fetchLeaves();
       
       alert('Leave request approved successfully!');
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to approve leave request');
+      // Refresh on error to restore correct state
+      await fetchLeaves();
     } finally {
       setProcessingId(null);
     }
@@ -116,21 +157,35 @@ const TeacherLeaveManagement = () => {
 
     setProcessingId(leaveId);
     try {
+      // Optimistically update UI
+      const updatedLeaves = leaves.map(leave =>
+        leave._id === leaveId
+          ? { ...leave, status: 'rejected', reviewedBy: user, teacherRemarks: remarks }
+          : leave
+      );
+      setLeaves(updatedLeaves);
+      
+      // Update stats optimistically
+      setStats({
+        ...stats,
+        pending: stats.pending - 1,
+        rejected: stats.rejected + 1
+      });
+
+      // Send to server
       await leaveAPI.updateLeaveStatus(leaveId, {
         status: 'rejected',
         teacherRemarks: remarks
       });
       
-      // Update local state
-      setLeaves(leaves.map(leave =>
-        leave._id === leaveId
-          ? { ...leave, status: 'rejected', reviewedBy: user, teacherRemarks: remarks }
-          : leave
-      ));
+      // Refresh data to ensure sync
+      await fetchLeaves();
       
       alert('Leave request rejected');
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to reject leave request');
+      // Refresh on error to restore correct state
+      await fetchLeaves();
     } finally {
       setProcessingId(null);
     }
@@ -183,13 +238,23 @@ const TeacherLeaveManagement = () => {
               <h1 className="text-2xl font-bold text-gray-900">Teacher Dashboard</h1>
               <p className="text-gray-600">Welcome back, {user?.name}!</p>
             </div>
-            <button
-              onClick={logout}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => fetchLeaves(false)}
+                className={`p-2 text-gray-600 hover:text-gray-900 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+                title="Refresh data"
+                disabled={refreshing}
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+              <button
+                onClick={logout}
               className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-all duration-200 flex items-center"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </button>
+            </div>
           </div>
         </div>
       </header>
@@ -201,7 +266,7 @@ const TeacherLeaveManagement = () => {
             <Bell className="w-8 h-8 text-blue-600 mr-3" />
             <h2 className="text-3xl font-bold text-gray-900">Leave Requests</h2>
             {stats.pending > 0 && (
-              <span className="ml-3 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
+              <span className="ml-3 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full animate-pulse">
                 {stats.pending} New
               </span>
             )}
