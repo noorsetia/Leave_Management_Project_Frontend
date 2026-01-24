@@ -39,6 +39,9 @@ const TakeQuiz = () => {
       setLoading(true);
       const response = await quizAPI.getQuiz(id);
       
+      console.log('Quiz response:', response.data);
+      console.log('Quiz questions:', response.data.quiz?.questions);
+      
       if (response.data.hasAttempted) {
         setHasAttempted(true);
         alert('You have already attempted this quiz!');
@@ -58,16 +61,37 @@ const TakeQuiz = () => {
   };
 
   const handleAnswerSelect = (questionId, answerIndex) => {
-    setAnswers({
-      ...answers,
-      [questionId]: answerIndex,
-    });
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: { type: 'mcq', selectedAnswer: answerIndex },
+    }));
+  };
+
+  const handleCodeChange = (questionId, code) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: { type: 'coding', language: prev?.[questionId]?.language || 'JavaScript', code },
+    }));
+  };
+
+  const handleLanguageChange = (questionId, language) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: { ...(prev?.[questionId] || {}), type: 'coding', language },
+    }));
   };
 
   const handleSubmit = async () => {
-    // Check if all questions are answered
-    const unanswered = quiz.questions.filter(q => answers[q._id] === undefined);
-    
+
+    // Check if all questions are answered (MCQ must have selectedAnswer, coding must have non-empty code)
+    const unanswered = quiz.questions.filter((q) => {
+      const a = answers[q._id];
+      if (!a) return true;
+      if (a.type === 'mcq') return a.selectedAnswer === undefined || a.selectedAnswer === -1;
+      if (a.type === 'coding') return !a.code || a.code.trim().length === 0;
+      return true;
+    });
+
     if (unanswered.length > 0) {
       const confirm = window.confirm(
         `You have ${unanswered.length} unanswered question(s). Submit anyway?`
@@ -78,11 +102,27 @@ const TakeQuiz = () => {
     try {
       setSubmitting(true);
 
-      // Prepare answers in required format
-      const formattedAnswers = quiz.questions.map(q => ({
-        questionId: q._id,
-        selectedAnswer: answers[q._id] ?? -1, // -1 for unanswered
-      }));
+      // Prepare answers in required format - support MCQ and coding
+      const formattedAnswers = quiz.questions.map((q) => {
+        const a = answers[q._id];
+        if (!a) {
+          // unanswered
+          return q.options && q.options.length > 0
+            ? { questionId: q._id, type: 'mcq', selectedAnswer: -1 }
+            : { questionId: q._id, type: 'coding', language: 'JavaScript', code: '' };
+        }
+
+        if (a.type === 'mcq') {
+          return { questionId: q._id, type: 'mcq', selectedAnswer: a.selectedAnswer ?? -1 };
+        }
+
+        if (a.type === 'coding') {
+          return { questionId: q._id, type: 'coding', language: a.language || 'JavaScript', code: a.code || '' };
+        }
+
+        // fallback
+        return { questionId: q._id, type: 'mcq', selectedAnswer: -1 };
+      });
 
       const response = await quizAPI.submitQuiz(id, {
         answers: formattedAnswers,
@@ -108,8 +148,26 @@ const TakeQuiz = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const isCodingQuestion = (question) => {
+    if (!question) return false;
+    // Explicit type marker
+    if (question.type === 'coding') return true;
+    if (question.type === 'mcq') return false;
+    // If options missing or empty, treat as coding
+    if (!question.options || question.options.length === 0) return true;
+    // If starterCode present, it's coding
+    if (question.starterCode) return true;
+    return false;
+  };
+
   const getAnsweredCount = () => {
-    return Object.keys(answers).length;
+    // Count only meaningful answers: MCQ selectedAnswer !== -1, coding has non-empty code
+    return Object.values(answers).filter((a) => {
+      if (!a) return false;
+      if (a.type === 'mcq') return a.selectedAnswer !== undefined && a.selectedAnswer !== -1;
+      if (a.type === 'coding') return a.code && a.code.trim().length > 0;
+      return false;
+    }).length;
   };
 
   if (loading) {
@@ -126,6 +184,9 @@ const TakeQuiz = () => {
   if (hasAttempted || !quiz) {
     return null;
   }
+
+  console.log('Rendering quiz:', quiz);
+  console.log('Quiz questions count:', quiz.questions?.length);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -196,36 +257,70 @@ const TakeQuiz = () => {
                   </h3>
 
                   <div className="space-y-3">
-                    {question.options.map((option, optionIndex) => (
-                      <button
-                        key={optionIndex}
-                        onClick={() => handleAnswerSelect(question._id, optionIndex)}
-                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                          answers[question._id] === optionIndex
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            answers[question._id] === optionIndex
-                              ? 'border-blue-500 bg-blue-500'
-                              : 'border-gray-300'
-                          }`}>
-                            {answers[question._id] === optionIndex && (
-                              <div className="w-2 h-2 bg-white rounded-full"></div>
-                            )}
-                          </div>
-                          <span className={
-                            answers[question._id] === optionIndex 
-                              ? 'text-blue-900 font-medium' 
-                              : 'text-gray-700'
-                          }>
-                            {option}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {!isCodingQuestion(question) ? (
+                      // Multiple choice
+                      question.options.map((option, optionIndex) => {
+                        const selected = answers[question._id]?.type === 'mcq' && answers[question._id]?.selectedAnswer === optionIndex;
+                        return (
+                          <button
+                            key={optionIndex}
+                            onClick={() => handleAnswerSelect(question._id, optionIndex)}
+                            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                              selected
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-blue-300 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                selected
+                                  ? 'border-blue-500 bg-blue-500'
+                                  : 'border-gray-300'
+                              }`}>
+                                {selected && (
+                                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                                )}
+                              </div>
+                              <span className={
+                                selected
+                                  ? 'text-blue-900 font-medium'
+                                  : 'text-gray-700'
+                              }>
+                                {option}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                      ) : (
+                      // Coding question
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-700">Language</label>
+                        <select
+                          value={answers[question._id]?.language || 'JavaScript'}
+                          onChange={(e) => handleLanguageChange(question._id, e.target.value)}
+                          className="w-40 px-3 py-2 border border-gray-300 rounded"
+                        >
+                          <option>JavaScript</option>
+                          <option>Python</option>
+                          <option>Java</option>
+                          <option>C++</option>
+                        </select>
+
+                        <label className="text-sm text-gray-700">Your Code</label>
+                        <textarea
+                          value={answers[question._id]?.code || ''}
+                          onChange={(e) => handleCodeChange(question._id, e.target.value)}
+                          rows={10}
+                          className="w-full font-mono text-sm p-3 border border-gray-200 rounded bg-gray-50"
+                          placeholder={`Write your solution here...`}
+                        />
+                        <details className="text-xs text-gray-500 mt-2">
+                          <summary className="cursor-pointer">Show question metadata</summary>
+                          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">{JSON.stringify(question, null, 2)}</pre>
+                        </details>
+                      </div>
+                    )}
                   </div>
 
                   {question.points > 1 && (

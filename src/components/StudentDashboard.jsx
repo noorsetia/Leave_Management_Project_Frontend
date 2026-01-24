@@ -16,7 +16,8 @@ import {
   FileText,
   RefreshCw,
   Award,
-  Brain
+  Brain,
+  Workflow
 } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -214,18 +215,6 @@ const StudentDashboard = () => {
               {quizStats?.totalAttempts || 0} quiz{(quizStats?.totalAttempts || 0) !== 1 ? 'zes' : ''} attempted
             </p>
           </div>
-                {(attendance?.attendancePercentage || 0) >= 75 ? 'Eligible' : 'Not Eligible'}
-              </div>
-            </div>
-            <div className="mt-4 bg-gray-200 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  (attendance?.attendancePercentage || 0) >= 75 ? 'bg-green-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${attendance?.attendancePercentage || 0}%` }}
-              ></div>
-            </div>
-          </div>
 
           {/* Total Leaves Card */}
           <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
@@ -268,28 +257,59 @@ const StudentDashboard = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="mb-8 flex gap-4 flex-wrap">
-          <button 
-            onClick={() => navigate('/student/apply-leave')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Apply for Leave
-          </button>
-          <button 
-            onClick={() => navigate('/student/my-leaves')}
-            className="bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-300 font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center"
-          >
-            <FileText className="w-5 h-5 mr-2" />
-            View My Leaves
-          </button>
-          <button 
-            onClick={() => navigate('/student/quizzes')}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center"
-          >
-            <Brain className="w-5 h-5 mr-2" />
-            Take Quiz
-          </button>
+        <div className="mb-8">
+          {/* Main Workflow Button - Prominent */}
+          <div className="mb-6">
+            <button 
+              onClick={() => navigate('/student/workflow')}
+              className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-2xl flex items-center justify-center border-2 border-white"
+            >
+              <Workflow className="w-7 h-7 mr-3" />
+              <div className="text-left">
+                <div className="text-xl">Complete Student Workflow</div>
+                <div className="text-sm font-normal text-blue-100">Attendance → Quiz → Coding → Leave Application</div>
+              </div>
+            </button>
+          </div>
+
+          {/* Progress Tracker Button - New */}
+          <div className="mb-6">
+            <button 
+              onClick={() => navigate('/student/progress')}
+              className="w-full bg-gradient-to-r from-green-600 via-teal-600 to-cyan-600 hover:from-green-700 hover:via-teal-700 hover:to-cyan-700 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-2xl flex items-center justify-center border-2 border-white"
+            >
+              <TrendingUp className="w-7 h-7 mr-3" />
+              <div className="text-left">
+                <div className="text-xl">Academic Progress Dashboard</div>
+                <div className="text-sm font-normal text-green-100">Track Performance, Goals & Achievements</div>
+              </div>
+            </button>
+          </div>
+
+          {/* Other Action Buttons */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button 
+              onClick={() => navigate('/student/apply-leave')}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center justify-center"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Apply for Leave
+            </button>
+            <button 
+              onClick={() => navigate('/student/my-leaves')}
+              className="bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-300 font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center"
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              View My Leaves
+            </button>
+            <button 
+              onClick={() => navigate('/student/quizzes')}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center justify-center"
+            >
+              <Brain className="w-5 h-5 mr-2" />
+              Take Quiz
+            </button>
+          </div>
         </div>
 
         {/* Leave Requests Table */}

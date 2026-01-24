@@ -50,8 +50,10 @@ const QuizResults = () => {
     return null;
   }
 
-  const correctCount = results.filter(r => r.isCorrect).length;
-  const incorrectCount = results.filter(r => !r.isCorrect).length;
+  const mcqResults = results.filter(r => r.type === 'mcq');
+  const codingResults = results.filter(r => r.type === 'coding');
+  const correctCount = mcqResults.filter(r => r.isCorrect).length;
+  const incorrectCount = mcqResults.filter(r => !r.isCorrect).length;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -147,12 +149,12 @@ const QuizResults = () => {
               <div
                 key={index}
                 className={`p-6 rounded-lg border-2 ${
-                  result.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                  result.type === 'mcq' ? (result.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50') : 'border-gray-200 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                    result.isCorrect ? 'bg-green-500' : 'bg-red-500'
+                    result.type === 'mcq' ? (result.isCorrect ? 'bg-green-500' : 'bg-red-500') : 'bg-blue-500'
                   } text-white font-bold`}>
                     {index + 1}
                   </div>
@@ -162,56 +164,70 @@ const QuizResults = () => {
                       {result.question}
                     </h3>
 
-                    <div className="space-y-2">
-                      {result.options.map((option, optionIndex) => {
-                        const isSelected = result.selectedAnswer === optionIndex;
-                        const isCorrect = result.correctAnswer === optionIndex;
+                    {result.type === 'mcq' ? (
+                      <>
+                        <div className="space-y-2">
+                          {result.options.map((option, optionIndex) => {
+                            const isSelected = result.selectedAnswer === optionIndex;
+                            const isCorrect = result.correctAnswer === optionIndex;
 
-                        return (
-                          <div
-                            key={optionIndex}
-                            className={`p-3 rounded-lg border ${
-                              isCorrect
-                                ? 'border-green-500 bg-green-100'
-                                : isSelected
-                                ? 'border-red-500 bg-red-100'
-                                : 'border-gray-200 bg-white'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className={
-                                isCorrect || isSelected ? 'font-medium' : ''
-                              }>
-                                {option}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {isCorrect && (
-                                  <span className="flex items-center gap-1 text-green-700 text-sm font-medium">
-                                    <CheckCircle className="w-4 h-4" />
-                                    Correct
+                            return (
+                              <div
+                                key={optionIndex}
+                                className={`p-3 rounded-lg border ${
+                                  isCorrect
+                                    ? 'border-green-500 bg-green-100'
+                                    : isSelected
+                                    ? 'border-red-500 bg-red-100'
+                                    : 'border-gray-200 bg-white'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className={isCorrect || isSelected ? 'font-medium' : ''}>
+                                    {option}
                                   </span>
-                                )}
-                                {isSelected && !isCorrect && (
-                                  <span className="flex items-center gap-1 text-red-700 text-sm font-medium">
-                                    <XCircle className="w-4 h-4" />
-                                    Your answer
-                                  </span>
-                                )}
+                                  <div className="flex items-center gap-2">
+                                    {isCorrect && (
+                                      <span className="flex items-center gap-1 text-green-700 text-sm font-medium">
+                                        <CheckCircle className="w-4 h-4" />
+                                        Correct
+                                      </span>
+                                    )}
+                                    {isSelected && !isCorrect && (
+                                      <span className="flex items-center gap-1 text-red-700 text-sm font-medium">
+                                        <XCircle className="w-4 h-4" />
+                                        Your answer
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            );
+                          })}
+                        </div>
 
-                    <div className="mt-4 flex items-center justify-between text-sm">
-                      <div className={result.isCorrect ? 'text-green-700' : 'text-red-700'}>
-                        {result.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                        <div className="mt-4 flex items-center justify-between text-sm">
+                          <div className={result.isCorrect ? 'text-green-700' : 'text-red-700'}>
+                            {result.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                          </div>
+                          <div className="text-gray-600">
+                            {result.earnedPoints}/{result.points} points
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      // coding question display
+                      <div className="space-y-3">
+                        <div className="text-sm text-gray-600">Submitted Language: <span className="font-medium">{result.language || 'N/A'}</span></div>
+                        <div className="bg-gray-900 text-white font-mono p-4 rounded text-sm overflow-auto">
+                          <pre className="whitespace-pre-wrap">{result.submittedCode || 'No code submitted'}</pre>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between text-sm">
+                          <div className="text-gray-700">Review status: {result.reviewed ? 'Reviewed' : 'Pending review'}</div>
+                          <div className="text-gray-600">{result.earnedPoints}/{result.points} points</div>
+                        </div>
                       </div>
-                      <div className="text-gray-600">
-                        {result.earnedPoints}/{result.points} points
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

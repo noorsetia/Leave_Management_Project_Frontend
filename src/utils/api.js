@@ -93,6 +93,9 @@ export const quizAPI = {
   submitQuiz: (id, data) => api.post(`/quiz/${id}/submit`, data),
   getMyAttempts: () => api.get('/quiz/my-attempts'),
   getQuizResults: (id) => api.get(`/quiz/${id}/results`),
+  // Coding execution
+  executeCode: (code, language, stdin) => api.post('/quiz/execute-code', { code, language, stdin }),
+  runTestCases: (code, language, testCases) => api.post('/quiz/run-tests', { code, language, testCases }),
   // Teacher routes
   createQuiz: (data) => api.post('/quiz/create', data),
   getAllQuizzesForTeacher: () => api.get('/quiz/teacher/all'),

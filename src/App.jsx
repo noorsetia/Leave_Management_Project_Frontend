@@ -13,6 +13,8 @@ import TeacherLeaveManagement from './pages/TeacherLeaveManagement';
 import QuizList from './pages/QuizList';
 import TakeQuiz from './pages/TakeQuiz';
 import QuizResults from './pages/QuizResults';
+import StudentWorkflow from './pages/StudentWorkflow';
+import StudentProgress from './pages/StudentProgress';
 
 // Components
 import StudentDashboard from './components/StudentDashboard';
@@ -107,6 +109,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="student">
             <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/workflow"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <StudentWorkflow />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/progress"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <StudentProgress />
           </ProtectedRoute>
         }
       />
