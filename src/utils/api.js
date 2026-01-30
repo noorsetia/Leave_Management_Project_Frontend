@@ -96,11 +96,21 @@ export const quizAPI = {
   // Coding execution
   executeCode: (code, language, stdin) => api.post('/quiz/execute-code', { code, language, stdin }),
   runTestCases: (code, language, testCases) => api.post('/quiz/run-tests', { code, language, testCases }),
+  // Gemini AI features
+  evaluateCode: (question, code, language, expectedOutput) => 
+    api.post('/quiz/evaluate-code', { question, code, language, expectedOutput }),
+  getHints: (question, code) => api.post('/quiz/get-hints', { question, code }),
+  explainCode: (code, language) => api.post('/quiz/explain-code', { code, language }),
   // Teacher routes
   createQuiz: (data) => api.post('/quiz/create', data),
   getAllQuizzesForTeacher: () => api.get('/quiz/teacher/all'),
   updateQuiz: (id, data) => api.put(`/quiz/${id}`, data),
   deleteQuiz: (id) => api.delete(`/quiz/${id}`),
+  // Teacher AI features
+  generateQuestions: (topic, difficulty, numQuestions) => 
+    api.post('/quiz/generate-questions', { topic, difficulty, numQuestions }),
+  generateCodingQuestion: (topic, difficulty, language) => 
+    api.post('/quiz/generate-coding-question', { topic, difficulty, language }),
 };
 
 export default api;

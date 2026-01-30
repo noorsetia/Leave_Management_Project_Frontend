@@ -75,7 +75,7 @@ const QuizResults = () => {
 
         {/* Score Card */}
         <div className={`rounded-2xl shadow-xl p-8 mb-8 ${
-          attempt.passed ? 'bg-linear-to-br from-green-500 to-green-600' : 'bg-linear-to-br from-red-500 to-red-600'
+          attempt.passed ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-red-500 to-red-600'
         } text-white`}>
           <div className="text-center mb-6">
             {attempt.passed ? (
@@ -216,16 +216,76 @@ const QuizResults = () => {
                         </div>
                       </>
                     ) : (
-                      // coding question display
-                      <div className="space-y-3">
-                        <div className="text-sm text-gray-600">Submitted Language: <span className="font-medium">{result.language || 'N/A'}</span></div>
-                        <div className="bg-gray-900 text-white font-mono p-4 rounded text-sm overflow-auto">
-                          <pre className="whitespace-pre-wrap">{result.submittedCode || 'No code submitted'}</pre>
+                      // Coding question display
+                      <div className="space-y-4">
+                        {/* Language Badge */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600 font-medium">Language:</span>
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                            {result.language || 'Not Specified'}
+                          </span>
                         </div>
-                        <div className="mt-4 flex items-center justify-between text-sm">
-                          <div className="text-gray-700">Review status: {result.reviewed ? 'Reviewed' : 'Pending review'}</div>
-                          <div className="text-gray-600">{result.earnedPoints}/{result.points} points</div>
+
+                        {/* Starter Code */}
+                        {result.starterCode && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-semibold text-gray-700">Starter Code:</label>
+                              <span className="text-xs text-gray-500">Provided template</span>
+                            </div>
+                            <div className="bg-gray-800 text-gray-100 font-mono text-sm p-4 rounded-lg overflow-auto max-h-48 border-2 border-gray-700">
+                              <pre className="whitespace-pre-wrap">{result.starterCode}</pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Submitted Code */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-700">Your Submitted Code:</label>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              result.submittedCode ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {result.submittedCode ? '✓ Submitted' : '✗ Not Submitted'}
+                            </span>
+                          </div>
+                          <div className={`font-mono text-sm p-4 rounded-lg overflow-auto max-h-64 border-2 ${
+                            result.submittedCode 
+                              ? 'bg-gray-900 text-green-300 border-green-700' 
+                              : 'bg-gray-100 text-gray-500 border-gray-300'
+                          }`}>
+                            <pre className="whitespace-pre-wrap">
+                              {result.submittedCode || '// No code submitted for this question'}
+                            </pre>
+                          </div>
                         </div>
+
+                        {/* Review Status & Points */}
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              result.reviewed 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {result.reviewed ? '✓ Reviewed by Teacher' : '⏳ Pending Review'}
+                            </span>
+                          </div>
+                          <div className="text-lg font-bold text-gray-700">
+                            <span className="text-blue-600">{result.earnedPoints}</span>
+                            <span className="text-gray-400"> / </span>
+                            <span>{result.points}</span>
+                            <span className="text-sm text-gray-500 ml-1">points</span>
+                          </div>
+                        </div>
+
+                        {/* AI Feedback Section (if available) */}
+                        {result.aiFeedback && (
+                          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                            <h4 className="text-sm font-semibold text-blue-900 mb-2">🤖 AI Feedback:</h4>
+                            <p className="text-sm text-blue-800">{result.aiFeedback}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

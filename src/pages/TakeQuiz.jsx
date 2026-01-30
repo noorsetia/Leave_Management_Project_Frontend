@@ -293,31 +293,82 @@ const TakeQuiz = () => {
                         );
                       })
                       ) : (
-                      // Coding question
-                      <div className="space-y-2">
-                        <label className="text-sm text-gray-700">Language</label>
-                        <select
-                          value={answers[question._id]?.language || 'JavaScript'}
-                          onChange={(e) => handleLanguageChange(question._id, e.target.value)}
-                          className="w-40 px-3 py-2 border border-gray-300 rounded"
-                        >
-                          <option>JavaScript</option>
-                          <option>Python</option>
-                          <option>Java</option>
-                          <option>C++</option>
-                        </select>
+                      // Coding Question
+                      <div className="space-y-4 bg-gradient-to-br from-gray-50 to-blue-50 p-6 rounded-xl border-2 border-blue-200">
+                        {/* Coding Question Header */}
+                        <div className="flex items-center gap-2 pb-3 border-b border-blue-200">
+                          <div className="px-3 py-1 bg-blue-600 text-white text-sm font-bold rounded-full">
+                            💻 CODING QUESTION
+                          </div>
+                          <div className="text-xs text-blue-600 font-medium">
+                            Write your solution below
+                          </div>
+                        </div>
 
-                        <label className="text-sm text-gray-700">Your Code</label>
-                        <textarea
-                          value={answers[question._id]?.code || ''}
-                          onChange={(e) => handleCodeChange(question._id, e.target.value)}
-                          rows={10}
-                          className="w-full font-mono text-sm p-3 border border-gray-200 rounded bg-gray-50"
-                          placeholder={`Write your solution here...`}
-                        />
-                        <details className="text-xs text-gray-500 mt-2">
-                          <summary className="cursor-pointer">Show question metadata</summary>
-                          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">{JSON.stringify(question, null, 2)}</pre>
+                        {/* Starter Code (if exists) */}
+                        {question.starterCode && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                              📄 Starter Code Template:
+                              <span className="text-xs text-gray-500 font-normal">(You can modify this)</span>
+                            </label>
+                            <div className="bg-gray-800 text-green-300 font-mono text-sm p-4 rounded-lg border-2 border-gray-700 overflow-auto max-h-48">
+                              <pre className="whitespace-pre-wrap">{question.starterCode}</pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Language Selector */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            🔧 Programming Language:
+                          </label>
+                          <select
+                            value={answers[question._id]?.language || 'JavaScript'}
+                            onChange={(e) => handleLanguageChange(question._id, e.target.value)}
+                            className="w-full md:w-64 px-4 py-3 border-2 border-blue-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition font-medium"
+                          >
+                            <option value="JavaScript">JavaScript</option>
+                            <option value="Python">Python</option>
+                            <option value="Java">Java</option>
+                            <option value="C++">C++</option>
+                            <option value="C">C</option>
+                            <option value="Ruby">Ruby</option>
+                            <option value="Go">Go</option>
+                          </select>
+                        </div>
+
+                        {/* Code Editor */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700 flex items-center justify-between">
+                            <span>✍️ Write Your Solution:</span>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              answers[question._id]?.code?.trim() 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {answers[question._id]?.code?.trim() ? '✓ Code Written' : '⚠ Not Yet Answered'}
+                            </span>
+                          </label>
+                          <textarea
+                            value={answers[question._id]?.code || ''}
+                            onChange={(e) => handleCodeChange(question._id, e.target.value)}
+                            rows={15}
+                            className="w-full font-mono text-sm p-4 border-2 border-blue-300 rounded-lg bg-gray-900 text-green-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                            placeholder={`// Write your ${answers[question._id]?.language || 'JavaScript'} solution here...\n\n// Example:\nfunction solution() {\n    // Your code\n}`}
+                            spellCheck="false"
+                          />
+                          <div className="flex items-center gap-2 text-xs text-gray-600">
+                            <span>💡 Tip: Write clean, well-commented code for better evaluation</span>
+                          </div>
+                        </div>
+
+                        {/* Question Metadata (Collapsible) */}
+                        <details className="text-xs text-gray-600 mt-2 bg-white p-3 rounded border border-gray-200">
+                          <summary className="cursor-pointer font-medium hover:text-blue-600 transition">
+                            🔍 Show Question Details
+                          </summary>
+                          <pre className="mt-3 p-3 bg-gray-50 rounded text-xs overflow-auto border border-gray-200">{JSON.stringify(question, null, 2)}</pre>
                         </details>
                       </div>
                     )}
