@@ -15,6 +15,8 @@ import TakeQuiz from './pages/TakeQuiz';
 import QuizResults from './pages/QuizResults';
 import StudentWorkflow from './pages/StudentWorkflow';
 import StudentProgress from './pages/StudentProgress';
+import GenerateQuiz from './pages/GenerateQuiz';
+import MarkAttendance from './pages/MarkAttendance';
 
 // Components
 import StudentDashboard from './components/StudentDashboard';
@@ -183,6 +185,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="teacher">
             <TeacherLeaveManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/generate-quiz"
+        element={
+          <ProtectedRoute requiredRole="teacher">
+            <GenerateQuiz />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/attendance"
+        element={
+          <ProtectedRoute requiredRole="teacher">
+            <MarkAttendance />
           </ProtectedRoute>
         }
       />

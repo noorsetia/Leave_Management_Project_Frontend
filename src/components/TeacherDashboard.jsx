@@ -14,7 +14,9 @@ import {
   LogOut,
   Eye,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  PlusCircle
 } from 'lucide-react';
 
 const TeacherDashboard = () => {
@@ -209,8 +211,8 @@ const TeacherDashboard = () => {
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="mb-6">
+        {/* Action Buttons */}
+        <div className="mb-6 flex gap-4">
           <button
             onClick={() => navigate('/teacher/leave-requests')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
@@ -222,6 +224,24 @@ const TeacherDashboard = () => {
                 {stats.pendingRequests}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => navigate('/teacher/generate-quiz')}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <Sparkles className="w-5 h-5" />
+            Generate Quiz with AI
+            <PlusCircle className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => navigate('/teacher/attendance')}
+            className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <Users className="w-5 h-5" />
+            Mark Attendance
+            <CheckCircle className="w-5 h-5" />
           </button>
         </div>
 
