@@ -42,7 +42,16 @@ export const attendanceAPI = {
   updateAttendance: (id, data) => api.put(`/attendance/${id}`, data),
   
   // Delete attendance record
-  deleteAttendance: (id) => api.delete(`/attendance/${id}`)
+  deleteAttendance: (id) => api.delete(`/attendance/${id}`),
+
+  // Add custom student
+  addCustomStudent: (data) => api.post('/attendance/students/add', data),
+  
+  // Remove custom student
+  removeCustomStudent: (studentId) => api.delete(`/attendance/students/${studentId}`),
+
+  // Get students for attendance (alias for compatibility)
+  getStudentsForAttendance: (params) => api.get('/attendance/students', { params })
 };
 
 export default api;

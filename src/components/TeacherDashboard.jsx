@@ -211,6 +211,67 @@ const TeacherDashboard = () => {
           </div>
         </div>
 
+        {/* Today's Attendance Stats */}
+        {stats?.attendanceStats && stats.attendanceStats.total > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-indigo-600" />
+              Today's Attendance Overview
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="bg-white rounded-xl shadow-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-gray-600">Total Marked</h4>
+                  <Users className="w-5 h-5 text-gray-400" />
+                </div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {stats.attendanceStats.total}
+                </div>
+              </div>
+
+              <div className="bg-green-50 rounded-xl shadow-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-green-600">Present</h4>
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                </div>
+                <div className="text-2xl font-bold text-green-800">
+                  {stats.attendanceStats.present}
+                </div>
+              </div>
+
+              <div className="bg-red-50 rounded-xl shadow-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-red-600">Absent</h4>
+                  <XCircle className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="text-2xl font-bold text-red-800">
+                  {stats.attendanceStats.absent}
+                </div>
+              </div>
+
+              <div className="bg-orange-50 rounded-xl shadow-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-orange-600">Late</h4>
+                  <Clock className="w-5 h-5 text-orange-400" />
+                </div>
+                <div className="text-2xl font-bold text-orange-800">
+                  {stats.attendanceStats.late}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-xl shadow-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-blue-600">Excused</h4>
+                  <AlertCircle className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="text-2xl font-bold text-blue-800">
+                  {stats.attendanceStats.excused}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="mb-6 flex gap-4">
           <button
@@ -242,6 +303,15 @@ const TeacherDashboard = () => {
             <Users className="w-5 h-5" />
             Mark Attendance
             <CheckCircle className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => navigate('/teacher/attendance-sheet')}
+            className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <FileText className="w-5 h-5" />
+            Attendance Sheet
+            <Calendar className="w-5 h-5" />
           </button>
         </div>
 

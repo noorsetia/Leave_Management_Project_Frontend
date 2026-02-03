@@ -17,6 +17,7 @@ import StudentWorkflow from './pages/StudentWorkflow';
 import StudentProgress from './pages/StudentProgress';
 import GenerateQuiz from './pages/GenerateQuiz';
 import MarkAttendance from './pages/MarkAttendance';
+import AttendanceSheet from './pages/AttendanceSheet';
 
 // Components
 import StudentDashboard from './components/StudentDashboard';
@@ -201,6 +202,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="teacher">
             <MarkAttendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/attendance-sheet"
+        element={
+          <ProtectedRoute requiredRole="teacher">
+            <AttendanceSheet />
           </ProtectedRoute>
         }
       />

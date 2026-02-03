@@ -42,7 +42,7 @@ const Login = () => {
     // Store the selected role in localStorage before redirecting
     localStorage.setItem('pendingOAuthRole', formData.role);
     // Redirect to backend OAuth endpoint
-    const backendURL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
+    const backendURL = (import.meta.env.VITE_API_URL || 'http://localhost:5001/api').replace('/api', '');
     window.location.href = `${backendURL}/api/auth/${provider}`;
   };
 

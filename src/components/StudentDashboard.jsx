@@ -59,22 +59,50 @@ const StudentDashboard = () => {
         setRefreshing(true);
       }
       
-      // Fetch leave stats and recent leaves
-      const [statsRes, leavesRes] = await Promise.all([
-        leaveAPI.getLeaveStats().catch(() => ({ data: { stats: { total: 0, pending: 0, approved: 0, rejected: 0 } } })),
-        leaveAPI.getMyLeaves().catch(() => ({ data: { leaveRequests: [] } })),
-      ]);
-
-      setLeaveStats(statsRes.data.stats);
-      setRecentLeaves(leavesRes.data.leaveRequests.slice(0, 5)); // Get latest 5 leaves
-
-      // Try to fetch attendance (may not exist yet)
+      // Try to fetch from new dashboard API first
       try {
-        const attendanceRes = await attendanceAPI.getMyAttendance();
-        setAttendance(attendanceRes.data);
+        const statsRes = await dashboardAPI.getStudentStats();
+        const data = statsRes.data;
+        
+        // Set leave stats
+        setLeaveStats({
+          total: data.totalRequests || 0,
+          pending: data.pendingRequests || 0,
+          approved: data.approvedRequests || 0,
+          rejected: data.rejectedRequests || 0,
+          attendanceStats: data.attendanceStats,
+          recentAttendance: data.recentAttendance
+        });
+        
+        // Set recent leaves
+        setRecentLeaves(data.recentRequests || []);
+
+        // Set attendance
+        setAttendance({
+          attendancePercentage: data.attendancePercentage || 0,
+          totalClasses: data.attendanceStats?.total || 0,
+          attendedClasses: data.attendanceStats?.present || 0,
+          isEligible: (data.attendancePercentage || 0) >= 75
+        });
       } catch (error) {
-        // Set default attendance if not found
-        setAttendance({ attendancePercentage: 0, totalClasses: 0, attendedClasses: 0, isEligible: false });
+        console.error('Error fetching from new API, falling back to old API:', error);
+        
+        // Fallback to old API structure
+        const [statsRes, leavesRes] = await Promise.all([
+          leaveAPI.getLeaveStats().catch(() => ({ data: { stats: { total: 0, pending: 0, approved: 0, rejected: 0 } } })),
+          leaveAPI.getMyLeaves().catch(() => ({ data: { leaveRequests: [] } })),
+        ]);
+
+        setLeaveStats(statsRes.data.stats);
+        setRecentLeaves(leavesRes.data.leaveRequests.slice(0, 5));
+
+        // Try to fetch attendance
+        try {
+          const attendanceRes = await attendanceAPI.getMyAttendance();
+          setAttendance(attendanceRes.data);
+        } catch (error) {
+          setAttendance({ attendancePercentage: 0, totalClasses: 0, attendedClasses: 0, isEligible: false });
+        }
       }
 
       // Fetch quiz statistics
@@ -378,6 +406,135 @@ const StudentDashboard = () => {
             </div>
           )}
         </div>
+
+        {/* Recent Attendance Section */}
+        {leaveStats && (
+          <div className="mt-8 bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Calendar className="w-6 h-6 text-indigo-600" />
+                Recent Attendance (Last 30 Days)
+              </h2>
+              <BarChart3 className="w-6 h-6 text-gray-400" />
+            </div>
+
+            {/* Attendance Statistics */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-gray-600">Total Days</h4>
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                </div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {leaveStats.attendanceStats?.total || 0}
+                </div>
+              </div>
+
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-green-600">Present</h4>
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                </div>
+                <div className="text-2xl font-bold text-green-800">
+                  {leaveStats.attendanceStats?.present || 0}
+                </div>
+              </div>
+
+              <div className="bg-red-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-red-600">Absent</h4>
+                  <XCircle className="w-4 h-4 text-red-400" />
+                </div>
+                <div className="text-2xl font-bold text-red-800">
+                  {leaveStats.attendanceStats?.absent || 0}
+                </div>
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-orange-600">Late</h4>
+                  <Clock className="w-4 h-4 text-orange-400" />
+                </div>
+                <div className="text-2xl font-bold text-orange-800">
+                  {leaveStats.attendanceStats?.late || 0}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-blue-600">Excused</h4>
+                  <AlertCircle className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="text-2xl font-bold text-blue-800">
+                  {leaveStats.attendanceStats?.excused || 0}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Attendance Records */}
+            {leaveStats.recentAttendance && leaveStats.recentAttendance.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Class</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Subject</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Teacher</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveStats.recentAttendance.map((record) => (
+                      <tr key={record._id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm text-gray-900">
+                          {new Date(record.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {record.class}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {record.subject}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                            record.status === 'present' ? 'bg-green-100 text-green-800' :
+                            record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                            record.status === 'late' ? 'bg-orange-100 text-orange-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {record.status === 'present' && <CheckCircle className="w-3 h-3" />}
+                            {record.status === 'absent' && <XCircle className="w-3 h-3" />}
+                            {record.status === 'late' && <Clock className="w-3 h-3" />}
+                            {record.status === 'excused' && <AlertCircle className="w-3 h-3" />}
+                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {record.teacher?.name || 'N/A'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-500">
+                          {record.remarks || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No attendance records yet</p>
+                <p className="text-gray-400 text-sm mt-1">Your teacher will mark attendance soon</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quick Tips */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
