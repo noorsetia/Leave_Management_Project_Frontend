@@ -16,7 +16,11 @@ import {
   FileText,
   RefreshCw,
   Sparkles,
-  PlusCircle
+  PlusCircle,
+  BarChart3,
+  ClipboardList,
+  Award,
+  Zap
 } from 'lucide-react';
 
 const TeacherDashboard = () => {
@@ -29,6 +33,7 @@ const TeacherDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -111,43 +116,161 @@ const TeacherDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading your dashboard...</p>
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-700 text-lg font-medium">Loading your dashboard...</p>
+          <p className="text-gray-500 text-sm mt-2">Fetching latest data</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      {/* Enhanced Header with Gradient */}
+      <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-2xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Teacher Dashboard</h1>
-              <p className="text-gray-600">Welcome back, {user?.name}!</p>
-            </div>
             <div className="flex items-center space-x-4">
+              <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-3 shadow-lg">
+                <Award className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+                  Teacher Dashboard
+                  <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
+                </h1>
+                <p className="text-indigo-100 text-lg">Welcome back, <span className="font-semibold">{user?.name}</span>! 👋</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
               <button 
                 onClick={() => fetchDashboardData(false)}
-                className={`relative p-2 text-gray-600 hover:text-gray-900 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+                className={`relative p-3 bg-white/20 backdrop-blur-lg text-white hover:bg-white/30 rounded-xl transition-all duration-300 transform hover:scale-105 ${refreshing ? 'animate-spin' : ''}`}
                 title="Refresh data"
                 disabled={refreshing}
               >
-                <RefreshCw className="w-6 h-6" />
+                <RefreshCw className="w-5 h-5" />
               </button>
-              <button className="relative p-2 text-gray-600 hover:text-gray-900">
-                <Bell className="w-6 h-6" />
-                {stats?.pendingRequests > 0 && (
-                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
-                    {stats.pendingRequests}
-                  </span>
+              
+              {/* Notification Button with Dropdown */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-3 bg-white/20 backdrop-blur-lg text-white hover:bg-white/30 rounded-xl transition-all duration-300 transform hover:scale-105"
+                >
+                  <Bell className="w-5 h-5" />
+                  {stats?.pendingRequests > 0 && (
+                    <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-bounce font-bold">
+                      {stats.pendingRequests}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown Panel */}
+                {showNotifications && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowNotifications(false)}
+                    ></div>
+
+                    {/* Notification Panel */}
+                    <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl z-50 border border-gray-100 overflow-hidden">
+                      {/* Header */}
+                      <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-900">Notifications</h3>
+                        <button 
+                          onClick={() => setShowNotifications(false)}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Notification List */}
+                      <div className="max-h-96 overflow-y-auto">
+                        {leaveRequests.filter(req => req.status === 'pending').length === 0 ? (
+                          // Empty State
+                          <div className="flex flex-col items-center justify-center py-16 px-6">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                              <Bell className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <p className="text-gray-500 text-center">No notifications yet</p>
+                          </div>
+                        ) : (
+                          // Notification Items
+                          <div className="divide-y divide-gray-100">
+                            {leaveRequests
+                              .filter(req => req.status === 'pending')
+                              .slice(0, 5)
+                              .map((request) => (
+                                <div 
+                                  key={request._id}
+                                  onClick={() => {
+                                    setSelectedRequest(request);
+                                    setShowNotifications(false);
+                                  }}
+                                  className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                      <Users className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-gray-900 truncate">
+                                        {request.student?.name}
+                                      </p>
+                                      <p className="text-xs text-gray-600 mt-1">
+                                        Leave request from {new Date(request.startDate).toLocaleDateString()} to {new Date(request.endDate).toLocaleDateString()}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        {new Date(request.createdAt).toLocaleDateString('en-US', { 
+                                          month: 'short', 
+                                          day: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                      <span className="w-2 h-2 bg-blue-500 rounded-full block"></span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer - View All */}
+                      {leaveRequests.filter(req => req.status === 'pending').length > 0 && (
+                        <div className="p-3 border-t border-gray-100 bg-gray-50">
+                          <button 
+                            onClick={() => {
+                              setActiveFilter('pending');
+                              setShowNotifications(false);
+                            }}
+                            className="w-full text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                          >
+                            View all {leaveRequests.filter(req => req.status === 'pending').length} notifications
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
-              </button>
-              <button onClick={logout} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-all duration-200 flex items-center">
+              </div>
+
+              <button 
+                onClick={logout} 
+                className="bg-white/90 hover:bg-white text-indigo-600 font-semibold py-2.5 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center"
+              >
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </button>
@@ -157,162 +280,211 @@ const TeacherDashboard = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
+        {/* Enhanced Stats Grid with Gradient Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Total Requests Card */}
-          <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-2xl p-6 transition-all duration-300 hover:shadow-3xl hover:scale-105 transform text-white">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Total Requests</h3>
-              <FileText className="w-5 h-5 text-blue-600" />
+              <h3 className="text-sm font-semibold text-blue-100 uppercase tracking-wide">Total Requests</h3>
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-2">
+                <FileText className="w-5 h-5" />
+              </div>
             </div>
-            <div className="text-3xl font-bold text-gray-900">
+            <div className="text-4xl font-bold mb-1">
               {stats?.totalRequests || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">This semester</p>
+            <div className="flex items-center gap-2 text-blue-100 text-sm">
+              <TrendingUp className="w-4 h-4" />
+              <span>This semester</span>
+            </div>
           </div>
 
-          {/* Pending Card - Clickable */}
+          {/* Pending Card - Clickable with Animation */}
           <div 
             onClick={() => navigate('/teacher/leave-requests')}
-            className="bg-yellow-50 rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl cursor-pointer hover:scale-105"
+            className="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-2xl p-6 transition-all duration-300 hover:shadow-3xl cursor-pointer hover:scale-105 transform text-white group"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-yellow-700">Pending Review</h3>
-              <Clock className="w-5 h-5 text-yellow-600" />
+              <h3 className="text-sm font-semibold text-yellow-100 uppercase tracking-wide">Pending Review</h3>
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-2 group-hover:rotate-12 transition-transform">
+                <Clock className="w-5 h-5" />
+              </div>
             </div>
-            <div className="text-3xl font-bold text-yellow-900">
+            <div className="text-4xl font-bold mb-1">
               {stats?.pendingRequests || 0}
             </div>
-            <p className="text-xs text-yellow-700 mt-1 font-medium">Click to review →</p>
+            <div className="flex items-center gap-2 text-yellow-100 text-sm font-medium group-hover:gap-3 transition-all">
+              <Zap className="w-4 h-4" />
+              <span>Click to review →</span>
+            </div>
           </div>
 
           {/* Approved Card */}
-          <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-700 rounded-2xl shadow-2xl p-6 transition-all duration-300 hover:shadow-3xl hover:scale-105 transform text-white">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Approved</h3>
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <h3 className="text-sm font-semibold text-green-100 uppercase tracking-wide">Approved</h3>
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-2">
+                <CheckCircle className="w-5 h-5" />
+              </div>
             </div>
-            <div className="text-3xl font-bold text-green-600">
+            <div className="text-4xl font-bold mb-1">
               {stats?.approvedRequests || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Successfully approved</p>
+            <div className="flex items-center gap-2 text-green-100 text-sm">
+              <Award className="w-4 h-4" />
+              <span>Successfully approved</span>
+            </div>
           </div>
 
           {/* Rejected Card */}
-          <div className="bg-white rounded-xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+          <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl shadow-2xl p-6 transition-all duration-300 hover:shadow-3xl hover:scale-105 transform text-white">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-600">Rejected</h3>
-              <XCircle className="w-5 h-5 text-red-600" />
+              <h3 className="text-sm font-semibold text-red-100 uppercase tracking-wide">Rejected</h3>
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-2">
+                <XCircle className="w-5 h-5" />
+              </div>
             </div>
-            <div className="text-3xl font-bold text-red-600">
+            <div className="text-4xl font-bold mb-1">
               {stats?.rejectedRequests || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Declined requests</p>
+            <div className="flex items-center gap-2 text-red-100 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>Declined requests</span>
+            </div>
           </div>
         </div>
 
-        {/* Today's Attendance Stats */}
+        {/* Today's Attendance Stats - Enhanced */}
         {stats?.attendanceStats && stats.attendanceStats.total > 0 && (
           <div className="mb-8">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-indigo-600" />
-              Today's Attendance Overview
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-white rounded-xl shadow-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-gray-600">Total Marked</h4>
-                  <Users className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-2.5 shadow-lg">
+                  <Calendar className="w-6 h-6 text-white" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                Today's Attendance Overview
+              </h3>
+              <div className="bg-white rounded-xl px-4 py-2 shadow-md">
+                <span className="text-sm text-gray-600">Live Updates</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600 font-semibold">Active</span>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-5">
+              <div className="bg-white rounded-2xl shadow-xl p-5 border-2 border-gray-100 hover:border-indigo-300 transition-all duration-300 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-600">Total Marked</h4>
+                  <Users className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div className="text-3xl font-bold text-gray-900">
                   {stats.attendanceStats.total}
                 </div>
+                <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: '100%' }}></div>
+                </div>
               </div>
 
-              <div className="bg-green-50 rounded-xl shadow-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-green-600">Present</h4>
-                  <CheckCircle className="w-5 h-5 text-green-400" />
+              <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl shadow-xl p-5 border-2 border-green-200 hover:border-green-400 transition-all duration-300 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-green-700">Present</h4>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
                 </div>
-                <div className="text-2xl font-bold text-green-800">
+                <div className="text-3xl font-bold text-green-800">
                   {stats.attendanceStats.present}
                 </div>
+                <div className="mt-2 text-xs text-green-600 font-medium">
+                  {Math.round((stats.attendanceStats.present / stats.attendanceStats.total) * 100)}% attendance
+                </div>
               </div>
 
-              <div className="bg-red-50 rounded-xl shadow-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-red-600">Absent</h4>
-                  <XCircle className="w-5 h-5 text-red-400" />
+              <div className="bg-gradient-to-br from-red-50 to-pink-100 rounded-2xl shadow-xl p-5 border-2 border-red-200 hover:border-red-400 transition-all duration-300 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-red-700">Absent</h4>
+                  <XCircle className="w-5 h-5 text-red-500" />
                 </div>
-                <div className="text-2xl font-bold text-red-800">
+                <div className="text-3xl font-bold text-red-800">
                   {stats.attendanceStats.absent}
                 </div>
+                <div className="mt-2 text-xs text-red-600 font-medium">
+                  Needs attention
+                </div>
               </div>
 
-              <div className="bg-orange-50 rounded-xl shadow-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-orange-600">Late</h4>
-                  <Clock className="w-5 h-5 text-orange-400" />
+              <div className="bg-gradient-to-br from-orange-50 to-amber-100 rounded-2xl shadow-xl p-5 border-2 border-orange-200 hover:border-orange-400 transition-all duration-300 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-orange-700">Late</h4>
+                  <Clock className="w-5 h-5 text-orange-500" />
                 </div>
-                <div className="text-2xl font-bold text-orange-800">
+                <div className="text-3xl font-bold text-orange-800">
                   {stats.attendanceStats.late}
                 </div>
+                <div className="mt-2 text-xs text-orange-600 font-medium">
+                  Arrived late
+                </div>
               </div>
 
-              <div className="bg-blue-50 rounded-xl shadow-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-blue-600">Excused</h4>
-                  <AlertCircle className="w-5 h-5 text-blue-400" />
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-100 rounded-2xl shadow-xl p-5 border-2 border-blue-200 hover:border-blue-400 transition-all duration-300 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-blue-700">Excused</h4>
+                  <AlertCircle className="w-5 h-5 text-blue-500" />
                 </div>
-                <div className="text-2xl font-bold text-blue-800">
+                <div className="text-3xl font-bold text-blue-800">
                   {stats.attendanceStats.excused}
+                </div>
+                <div className="mt-2 text-xs text-blue-600 font-medium">
+                  With permission
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="mb-6 flex gap-4">
-          <button
-            onClick={() => navigate('/teacher/leave-requests')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
-          >
-            <Bell className="w-5 h-5" />
-            View All Leave Requests
-            {stats?.pendingRequests > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-sm font-bold px-2 py-1 rounded-full">
-                {stats.pendingRequests}
-              </span>
-            )}
-          </button>
+        {/* Quick Action Buttons - Enhanced */}
+        <div className="mb-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl p-2.5 shadow-lg">
+              <Zap className="w-6 h-6 text-white" />
+            </div>
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <button
+              onClick={() => navigate('/teacher/mark-attendance')}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-6 px-8 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 group"
+            >
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-3 group-hover:rotate-12 transition-transform">
+                <ClipboardList className="w-7 h-7" />
+              </div>
+              <span className="text-lg">Mark Attendance</span>
+            </button>
 
-          <button
-            onClick={() => navigate('/teacher/generate-quiz')}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
-          >
-            <Sparkles className="w-5 h-5" />
-            Generate Quiz with AI
-            <PlusCircle className="w-5 h-5" />
-          </button>
+            <button
+              onClick={() => navigate('/teacher/attendance-sheet')}
+              className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-6 px-8 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 group"
+            >
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-3 group-hover:rotate-12 transition-transform">
+                <BarChart3 className="w-7 h-7" />
+              </div>
+              <span className="text-lg">Attendance Sheet</span>
+            </button>
 
-          <button
-            onClick={() => navigate('/teacher/attendance')}
-            className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
-          >
-            <Users className="w-5 h-5" />
-            Mark Attendance
-            <CheckCircle className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => navigate('/teacher/attendance-sheet')}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-2"
-          >
-            <FileText className="w-5 h-5" />
-            Attendance Sheet
-            <Calendar className="w-5 h-5" />
-          </button>
+            <button
+              onClick={() => navigate('/teacher/leave-requests')}
+              className="relative bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-6 px-8 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 group"
+            >
+              <div className="bg-white/20 backdrop-blur-lg rounded-xl p-3 group-hover:rotate-12 transition-transform">
+                <FileText className="w-7 h-7" />
+              </div>
+              <span className="text-lg">Leave Requests</span>
+              {stats?.pendingRequests > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg animate-bounce">
+                  {stats.pendingRequests}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Filter Tabs */}
