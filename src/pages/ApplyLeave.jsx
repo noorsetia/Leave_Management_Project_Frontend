@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, FileText, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import { leaveAPI } from '../utils/api';
+import TakeLeaveAssessment from './TakeLeaveAssessment';
 
 const ApplyLeave = () => {
   const navigate = useNavigate();
@@ -11,10 +12,14 @@ const ApplyLeave = () => {
     endDate: '',
     description: ''
   });
+  const [assessmentRequired, setAssessmentRequired] = useState(false);
+  const [assessmentSection, setAssessmentSection] = useState('');
   const [numberOfDays, setNumberOfDays] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [createdLeaveId, setCreatedLeaveId] = useState(null);
+  const [showAssessmentInline, setShowAssessmentInline] = useState(false);
 
   const leaveTypes = [
     'Sick Leave',
@@ -75,7 +80,8 @@ const ApplyLeave = () => {
     setLoading(true);
 
     try {
-      const response = await leaveAPI.createLeaveRequest(formData);
+      const payload = { ...formData, assessmentRequired, assessmentSection };
+      const response = await leaveAPI.createLeaveRequest(payload);
       setSuccess('Leave request submitted successfully!');
       
       // Reset form
@@ -85,12 +91,21 @@ const ApplyLeave = () => {
         endDate: '',
         description: ''
       });
+      setAssessmentRequired(false);
+      setAssessmentSection('');
       setNumberOfDays(0);
 
-      // Redirect to my leaves page after 2 seconds
+      // If assessment was requested, show the assessment inline for this leave
+      if (assessmentRequired && response.data?.leaveRequest?.id) {
+        setCreatedLeaveId(response.data.leaveRequest.id);
+        setShowAssessmentInline(true);
+        return;
+      }
+
+      // Otherwise redirect to my leaves page after 1.5 seconds
       setTimeout(() => {
         navigate('/student/my-leaves');
-      }, 2000);
+      }, 1500);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit leave request');
     } finally {
@@ -124,6 +139,12 @@ const ApplyLeave = () => {
             </div>
           )}
 
+          {/* If showAssessmentInline is true, show the assessment component only */}
+          {showAssessmentInline ? (
+            <div className="mt-4">
+              <TakeLeaveAssessment leaveId={createdLeaveId} />
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Leave Type */}
             <div>
@@ -216,6 +237,38 @@ const ApplyLeave = () => {
               </p>
             </div>
 
+            {/* Assessment option */}
+            <div className="pt-2 border-t">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={assessmentRequired}
+                  onChange={(e) => setAssessmentRequired(e.target.checked)}
+                />
+                <span className="font-medium">Require assessment as part of leave</span>
+              </label>
+
+              {assessmentRequired && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select assessment section</label>
+                  <select
+                    value={assessmentSection}
+                    onChange={(e) => setAssessmentSection(e.target.value)}
+                    className="w-full px-3 py-2 border rounded"
+                  >
+                    <option value="">Select section (e.g., Frontend, Backend, DS)</option>
+                    <option value="Frontend">Frontend</option>
+                    <option value="Backend">Backend</option>
+                    <option value="Data Structures">Data Structures</option>
+                    <option value="Algorithms">Algorithms</option>
+                    <option value="Database">Database</option>
+                    <option value="DevOps">DevOps</option>
+                  </select>
+                  <p className="text-sm text-gray-500 mt-2">If you choose an assessment, you will be asked to complete a short test (MCQ) linked to this leave request.</p>
+                </div>
+              )}
+            </div>
+
             {/* Submit Button */}
             <div className="flex gap-4">
               <button
@@ -234,6 +287,7 @@ const ApplyLeave = () => {
               </button>
             </div>
           </form>
+          )}
 
           {/* Info Box */}
           <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">

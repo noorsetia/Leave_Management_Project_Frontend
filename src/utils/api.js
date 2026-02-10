@@ -62,6 +62,9 @@ export const leaveAPI = {
   updateLeaveStatus: (id, data) => api.put(`/leave/${id}/status`, data),
   deleteLeaveRequest: (id) => api.delete(`/leave/${id}`),
   getLeaveStats: () => api.get('/leave/stats'),
+  // Assessment related to a leave request
+  getAssessmentQuestions: (leaveId) => api.get(`/leave/${leaveId}/assessment`),
+  submitAssessment: (leaveId, data) => api.post(`/leave/${leaveId}/submit-assessment`, data),
 };
 
 // Assessment API

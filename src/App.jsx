@@ -10,6 +10,7 @@ import OAuthCallback from './pages/OAuthCallback';
 import ApplyLeave from './pages/ApplyLeave';
 import MyLeaves from './pages/MyLeaves';
 import TeacherLeaveManagement from './pages/TeacherLeaveManagement';
+import TeacherLeaveDetails from './pages/TeacherLeaveDetails';
 import QuizList from './pages/QuizList';
 import TakeQuiz from './pages/TakeQuiz';
 import QuizResults from './pages/QuizResults';
@@ -18,6 +19,10 @@ import StudentProgress from './pages/StudentProgress';
 import GenerateQuiz from './pages/GenerateQuiz';
 import MarkAttendance from './pages/MarkAttendance';
 import AttendanceSheet from './pages/AttendanceSheet';
+import SkillAssessment from './pages/SkillAssessment';
+import CodingChallenge from './pages/CodingChallenge';
+import FinalEvaluation from './pages/FinalEvaluation';
+import TakeLeaveAssessment from './pages/TakeLeaveAssessment';
 
 // Components
 import StudentDashboard from './components/StudentDashboard';
@@ -148,10 +153,26 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/student/leave/:id/assessment"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <TakeLeaveAssessment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/student/quizzes"
         element={
           <ProtectedRoute requiredRole="student">
             <QuizList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/skill-assessment"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <SkillAssessment />
           </ProtectedRoute>
         }
       />
@@ -171,6 +192,22 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/student/coding-challenge"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <CodingChallenge />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/final-evaluation"
+        element={
+          <ProtectedRoute requiredRole="student">
+            <FinalEvaluation />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Teacher Routes */}
       <Route
@@ -186,6 +223,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="teacher">
             <TeacherLeaveManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/leave/:id"
+        element={
+          <ProtectedRoute requiredRole="teacher">
+            <TeacherLeaveDetails />
           </ProtectedRoute>
         }
       />

@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { quizAPI } from '../utils/api';
-import { Clock, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, ArrowLeft, Brain } from 'lucide-react';
 
 const TakeQuiz = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [quiz, setQuiz] = useState(null);
+  const [originalQuiz, setOriginalQuiz] = useState(null);
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [startedAt] = useState(new Date());
   const [hasAttempted, setHasAttempted] = useState(false);
+  const [skillAssessment, setSkillAssessment] = useState(null);
+  const [isAdaptive, setIsAdaptive] = useState(false);
 
   useEffect(() => {
     fetchQuiz();
@@ -34,9 +38,99 @@ const TakeQuiz = () => {
     }
   }, [quiz, timeLeft]);
 
+  // Adaptive question selection based on skill assessment
+  const selectAdaptiveQuestions = (allQuestions, assessment) => {
+    if (!assessment || allQuestions.length <= 10) {
+      return allQuestions; // Return all if no assessment or too few questions
+    }
+
+    const { level } = assessment;
+    
+    // Categorize questions by difficulty (we'll use a heuristic based on question structure)
+    const categorizeQuestion = (q) => {
+      // If question has explicit difficulty, use it
+      if (q.difficulty) return q.difficulty;
+      
+      // Otherwise, categorize based on complexity heuristics
+      if (isCodingQuestion(q)) return 'Hard';
+      if (q.options && q.options.length > 4) return 'Medium';
+      return 'Easy';
+    };
+
+    const categorized = {
+      Easy: allQuestions.filter(q => categorizeQuestion(q) === 'Easy'),
+      Medium: allQuestions.filter(q => categorizeQuestion(q) === 'Medium'),
+      Hard: allQuestions.filter(q => categorizeQuestion(q) === 'Hard')
+    };
+
+    let selectedQuestions = [];
+    const totalToSelect = Math.min(15, allQuestions.length); // Cap at 15 questions
+
+    if (level === 'Advanced') {
+      // 70% Hard, 20% Medium, 10% Easy
+      const hardCount = Math.floor(totalToSelect * 0.7);
+      const mediumCount = Math.floor(totalToSelect * 0.2);
+      const easyCount = totalToSelect - hardCount - mediumCount;
+
+      selectedQuestions = [
+        ...getRandomQuestions(categorized.Hard, hardCount),
+        ...getRandomQuestions(categorized.Medium, mediumCount),
+        ...getRandomQuestions(categorized.Easy, easyCount)
+      ];
+    } else if (level === 'Intermediate') {
+      // 60% Medium, 20% Hard, 20% Easy
+      const mediumCount = Math.floor(totalToSelect * 0.6);
+      const hardCount = Math.floor(totalToSelect * 0.2);
+      const easyCount = totalToSelect - mediumCount - hardCount;
+
+      selectedQuestions = [
+        ...getRandomQuestions(categorized.Medium, mediumCount),
+        ...getRandomQuestions(categorized.Hard, hardCount),
+        ...getRandomQuestions(categorized.Easy, easyCount)
+      ];
+    } else {
+      // Beginner: 70% Easy, 20% Medium, 10% Hard
+      const easyCount = Math.floor(totalToSelect * 0.7);
+      const mediumCount = Math.floor(totalToSelect * 0.2);
+      const hardCount = totalToSelect - easyCount - mediumCount;
+
+      selectedQuestions = [
+        ...getRandomQuestions(categorized.Easy, easyCount),
+        ...getRandomQuestions(categorized.Medium, mediumCount),
+        ...getRandomQuestions(categorized.Hard, hardCount)
+      ];
+    }
+
+    // Shuffle to avoid predictable patterns
+    return shuffleArray(selectedQuestions);
+  };
+
+  const getRandomQuestions = (questions, count) => {
+    if (!questions || questions.length === 0) return [];
+    const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(count, shuffled.length));
+  };
+
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   const fetchQuiz = async () => {
     try {
       setLoading(true);
+
+      // Validate quiz ID exists
+      if (!id || id === 'undefined') {
+        alert('Invalid quiz ID. Redirecting to quiz list...');
+        navigate('/student/quizzes');
+        return;
+      }
+
       const response = await quizAPI.getQuiz(id);
       
       console.log('Quiz response:', response.data);
@@ -49,11 +143,44 @@ const TakeQuiz = () => {
         return;
       }
 
-      setQuiz(response.data.quiz);
-      setTimeLeft(response.data.quiz.duration * 60); // Convert to seconds
+      const fetchedQuiz = response.data.quiz;
+      setOriginalQuiz(fetchedQuiz);
+
+      // Check for skill assessment from navigation state or localStorage
+      let assessment = location.state?.skillAssessment;
+      if (!assessment) {
+        const stored = localStorage.getItem('skillAssessment');
+        if (stored) {
+          assessment = JSON.parse(stored);
+        }
+      }
+
+      if (assessment && fetchedQuiz.questions.length > 10) {
+        // Apply adaptive selection
+        const adaptedQuestions = selectAdaptiveQuestions(fetchedQuiz.questions, assessment);
+        setQuiz({
+          ...fetchedQuiz,
+          questions: adaptedQuestions
+        });
+        setSkillAssessment(assessment);
+        setIsAdaptive(true);
+        
+        // Store assessment data for results comparison
+        localStorage.setItem('currentQuizAssessment', JSON.stringify({
+          quizId: id,
+          assessment,
+          adaptedQuestionCount: adaptedQuestions.length,
+          originalQuestionCount: fetchedQuiz.questions.length
+        }));
+      } else {
+        setQuiz(fetchedQuiz);
+        setIsAdaptive(false);
+      }
+
+      setTimeLeft(fetchedQuiz.duration * 60); // Convert to seconds
     } catch (error) {
       console.error('Error fetching quiz:', error);
-      alert('Error loading quiz');
+      alert('Error loading quiz. Please try again.');
       navigate('/student/quizzes');
     } finally {
       setLoading(false);
@@ -191,6 +318,26 @@ const TakeQuiz = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* Adaptive Quiz Indicator */}
+        {isAdaptive && skillAssessment && (
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-4 mb-6 text-white">
+            <div className="flex items-center gap-3">
+              <Brain className="w-6 h-6" />
+              <div className="flex-1">
+                <h3 className="font-bold">Adaptive Quiz Mode</h3>
+                <p className="text-sm opacity-90">
+                  Questions personalized for {skillAssessment.level} level (Self-rated: {skillAssessment.avgRating}/5)
+                </p>
+              </div>
+              <div className="bg-white bg-opacity-20 rounded-lg px-4 py-2 text-center">
+                <p className="text-xs opacity-90">Adapted</p>
+                <p className="text-xl font-bold">{quiz.questions.length}</p>
+                <p className="text-xs opacity-90">questions</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
           <div className="flex items-center justify-between mb-4">

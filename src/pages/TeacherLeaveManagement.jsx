@@ -229,92 +229,77 @@ const TeacherLeaveManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
+      <header className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Teacher Dashboard</h1>
-              <p className="text-gray-600">Welcome back, {user?.name}!</p>
+              <h1 className="text-3xl font-bold text-slate-900">Leave Requests</h1>
+              <p className="text-slate-500">Review, approve, and track student leave submissions.</p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => fetchLeaves(false)}
-                className={`p-2 text-gray-600 hover:text-gray-900 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition ${refreshing ? 'animate-spin' : ''}`}
                 title="Refresh data"
                 disabled={refreshing}
               >
-                <RefreshCw className="w-5 h-5" />
+                <RefreshCw className="w-4 h-4" />
+                Refresh
               </button>
               <button
                 onClick={logout}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-all duration-200 flex items-center"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </button>
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Title with Notification Badge */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <Bell className="w-8 h-8 text-blue-600 mr-3" />
-            <h2 className="text-3xl font-bold text-gray-900">Leave Requests</h2>
-            {stats.pending > 0 && (
-              <span className="ml-3 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full animate-pulse">
-                {stats.pending} New
-              </span>
-            )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-slate-400">Total Requests</p>
+            <p className="text-2xl font-bold text-slate-900">{stats.total || 0}</p>
+          </div>
+          <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-amber-500">Pending</p>
+            <p className="text-2xl font-bold text-amber-700">{stats.pending || 0}</p>
+          </div>
+          <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-emerald-500">Approved</p>
+            <p className="text-2xl font-bold text-emerald-700">{stats.approved || 0}</p>
+          </div>
+          <div className="bg-rose-50 rounded-xl border border-rose-200 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-rose-500">Rejected</p>
+            <p className="text-2xl font-bold text-rose-700">{stats.rejected || 0}</p>
           </div>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-gray-600 text-sm">Total Requests</p>
-            <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-          </div>
-          <div className="bg-yellow-50 rounded-lg shadow p-4 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setFilter('pending')}>
-            <p className="text-yellow-700 text-sm flex items-center gap-2">
-              <Bell className="w-4 h-4" />
-              Pending Review
-            </p>
-            <p className="text-3xl font-bold text-yellow-900">{stats.pending}</p>
-          </div>
-          <div className="bg-green-50 rounded-lg shadow p-4 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setFilter('approved')}>
-            <p className="text-green-700 text-sm">Approved</p>
-            <p className="text-3xl font-bold text-green-900">{stats.approved}</p>
-          </div>
-          <div className="bg-red-50 rounded-lg shadow p-4 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setFilter('rejected')}>
-            <p className="text-red-700 text-sm">Rejected</p>
-            <p className="text-3xl font-bold text-red-900">{stats.rejected}</p>
-          </div>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
+        {/* Filters */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="flex flex-col md:flex-row gap-4 md:items-center">
             <div className="flex-1 relative">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+              <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by student name or email..."
+                placeholder="Search by student name or email"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-500" />
+              <Filter className="w-5 h-5 text-slate-500" />
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="all">All Requests</option>
                 <option value="pending">Pending</option>
@@ -325,117 +310,101 @@ const TeacherLeaveManagement = () => {
           </div>
         </div>
 
-        {/* Leave Requests List */}
+        {/* Requests List / Empty State */}
         <div className="space-y-4">
           {filteredLeaves.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">No leave requests found</p>
-              <p className="text-gray-400 text-sm mt-2">
-                {filter !== 'all' ? `No ${filter} requests` : 'No requests available'}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center">
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-600 text-lg font-semibold">No leave requests found</p>
+              <p className="text-slate-400 text-sm mt-1">
+                {filter !== 'all' ? `No ${filter} requests available.` : 'There are no requests to review.'}
               </p>
             </div>
           ) : (
             filteredLeaves.map((leave) => (
-              <div
-                key={leave._id}
-                className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 ${
-                  leave.status === 'pending' ? 'border-l-4 border-yellow-500' : ''
-                }`}
-              >
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  {/* Left Section - Student & Leave Info */}
+              <div key={leave._id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                   <div className="flex-1">
                     <div className="flex items-start gap-4">
-                      <div className="bg-blue-100 rounded-full p-3">
-                        <User className="w-6 h-6 text-blue-600" />
+                      <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center">
+                        <User className="w-6 h-6 text-indigo-600" />
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-semibold text-gray-900">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-lg font-semibold text-slate-900">
                             {leave.student?.name || 'Unknown Student'}
                           </h3>
-                          <span className={`${getStatusBadge(leave.status)} flex items-center gap-1`}>
+                          <span className={`${getStatusBadge(leave.status)} inline-flex items-center gap-1`}>
                             {getStatusIcon(leave.status)}
-                            {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
+                            {leave.status ? leave.status.charAt(0).toUpperCase() + leave.status.slice(1) : 'Unknown'}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">{leave.student?.email}</p>
-                        
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <FileText className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium text-gray-700">Leave Type:</span>
-                            <span className="text-gray-900 font-semibold">{leave.leaveType}</span>
+                        <p className="text-sm text-slate-500 mt-1">{leave.student?.email || 'Not available'}</p>
+
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            <span>{leave.leaveType || 'Not specified'}</span>
                           </div>
-                          
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium text-gray-700">Duration:</span>
-                            <span className="text-gray-900">
-                              {formatDate(leave.startDate)} - {formatDate(leave.endDate)}
-                            </span>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</span>
                           </div>
-                          
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium text-gray-700">Days Requested:</span>
-                            <span className="text-gray-900 font-semibold text-lg">
-                              {leave.numberOfDays} {leave.numberOfDays === 1 ? 'day' : 'days'}
-                            </span>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span>{leave.numberOfDays || 0} {leave.numberOfDays === 1 ? 'day' : 'days'}</span>
                           </div>
                         </div>
 
-                        <div className="mt-4 bg-gray-50 rounded-lg p-3">
-                          <p className="text-sm font-medium text-gray-700 mb-1">Reason:</p>
-                          <p className="text-sm text-gray-900">{leave.description}</p>
+                        <div className="mt-4 bg-slate-50 rounded-lg p-3 text-sm text-slate-700">
+                          <span className="font-semibold text-slate-600">Reason:</span>{' '}
+                          {leave.description || 'Not provided.'}
                         </div>
 
                         {leave.attendancePercentage !== undefined && (
-                          <div className="mt-3 flex items-center gap-2 text-sm">
-                            <span className="font-medium text-gray-700">Attendance:</span>
-                            <span className={`font-semibold ${
-                              leave.attendancePercentage >= 75 ? 'text-green-600' : 'text-red-600'
-                            }`}>
+                          <div className="mt-3 text-sm">
+                            <span className="text-slate-600 font-medium">Attendance:</span>{' '}
+                            <span className={leave.attendancePercentage >= 75 ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
                               {leave.attendancePercentage}%
                             </span>
                           </div>
                         )}
 
                         {leave.teacherRemarks && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <p className="text-sm font-medium text-gray-700 mb-1">Your Remarks:</p>
-                            <p className="text-sm text-gray-600">{leave.teacherRemarks}</p>
+                          <div className="mt-4 border-t border-slate-200 pt-4 text-sm text-slate-600">
+                            <p className="font-semibold text-slate-700">Your Remarks</p>
+                            <p className="mt-1">{leave.teacherRemarks}</p>
                             {leave.reviewedAt && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                Reviewed on {formatDate(leave.reviewedAt)}
-                              </p>
+                              <p className="text-xs text-slate-400 mt-1">Reviewed on {formatDate(leave.reviewedAt)}</p>
                             )}
                           </div>
                         )}
 
-                        <div className="mt-3 text-xs text-gray-400">
-                          Applied on {formatDate(leave.createdAt)}
-                        </div>
+                        <p className="text-xs text-slate-400 mt-3">Applied on {formatDate(leave.createdAt)}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Section - Actions */}
                   {leave.status === 'pending' && (
-                    <div className="flex flex-col gap-3 md:w-40">
+                    <div className="flex flex-col gap-3 w-full lg:w-44">
                       <button
                         onClick={() => handleApprove(leave._id)}
                         disabled={processingId === leave._id}
-                        className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <CheckCircle className="w-4 h-4" />
                         Approve
                       </button>
                       <button
+                        onClick={() => navigate(`/teacher/leave/${leave._id}`)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 text-white font-semibold py-2.5 hover:bg-indigo-700 transition"
+                      >
+                        View
+                      </button>
+                      <button
                         onClick={() => handleReject(leave._id)}
                         disabled={processingId === leave._id}
-                        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 text-white font-semibold py-2.5 hover:bg-rose-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <XCircle className="w-4 h-4" />
                         Reject
@@ -448,16 +417,15 @@ const TeacherLeaveManagement = () => {
           )}
         </div>
 
-        {/* Info Alert */}
         {stats.pending > 0 && (
-          <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 mt-0.5 shrink-0" />
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
             <div>
-              <p className="text-yellow-900 font-medium">
-                You have {stats.pending} pending leave {stats.pending === 1 ? 'request' : 'requests'} waiting for your review
+              <p className="text-amber-900 font-semibold">
+                You have {stats.pending} pending leave {stats.pending === 1 ? 'request' : 'requests'} awaiting review.
               </p>
-              <p className="text-yellow-800 text-sm mt-1">
-                Please review and respond to student leave applications promptly
+              <p className="text-amber-800 text-sm mt-1">
+                Please review and respond promptly to keep students informed.
               </p>
             </div>
           </div>

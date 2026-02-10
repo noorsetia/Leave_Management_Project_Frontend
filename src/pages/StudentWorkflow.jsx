@@ -18,7 +18,8 @@ import {
   Zap,
   TrendingUp,
   Target,
-  ArrowDown
+  ArrowDown,
+  ArrowRight
 } from 'lucide-react';
 
 const StudentWorkflow = () => {
@@ -185,6 +186,54 @@ const StudentWorkflow = () => {
     'Swift'
   ];
 
+  const getAverageScore = (attempts) => {
+    if (!attempts || attempts.length === 0) return 0;
+    const total = attempts.reduce((sum, attempt) => sum + (attempt.percentage || 0), 0);
+    return total / attempts.length;
+  };
+
+  const getAverageCompletionTime = (attempts) => {
+    if (!attempts || attempts.length === 0) return 0;
+    const times = attempts
+      .map(attempt => attempt.duration || attempt.timeTaken || attempt.timeSpent || 0)
+      .filter(value => typeof value === 'number' && value > 0);
+    if (times.length === 0) return 0;
+    return times.reduce((sum, value) => sum + value, 0) / times.length;
+  };
+
+  const getStudentLevel = () => {
+    const attempts = quizAttempts || [];
+    const isFirstTime = attempts.length === 0;
+    const avgScore = getAverageScore(attempts);
+    const failedAttempts = attempts.filter(attempt => attempt.passed === false).length;
+    const avgTime = getAverageCompletionTime(attempts);
+
+    if (isFirstTime || avgScore < 50 || failedAttempts >= 3) return 'Beginner';
+    if (avgScore <= 75) return 'Intermediate';
+    if (avgTime > 45 && avgScore < 85) return 'Intermediate';
+    return 'Advanced';
+  };
+
+  const getQuizLevel = (quiz) => {
+    const difficulty = quiz?.difficulty || 'Medium';
+    if (difficulty === 'Easy') return 'Beginner';
+    if (difficulty === 'Hard') return 'Advanced';
+    return 'Intermediate';
+  };
+
+  const studentLevel = getStudentLevel();
+  const levelOrder = ['Beginner', 'Intermediate', 'Advanced'];
+  const adjacentLevels = {
+    Beginner: ['Intermediate'],
+    Intermediate: ['Beginner', 'Advanced'],
+    Advanced: ['Intermediate']
+  };
+  const visibleLevels = [studentLevel, ...adjacentLevels[studentLevel]];
+  const quizzesByLevel = levelOrder.reduce((acc, level) => {
+    acc[level] = (quizzes || []).filter(quiz => getQuizLevel(quiz) === level);
+    return acc;
+  }, {});
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -226,6 +275,44 @@ const StudentWorkflow = () => {
             </div>
           </div>
         </header>
+
+        {/* Start Assessment CTA */}
+        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-lg p-8 text-white">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold mb-2">Ready to Start Your Assessment?</h2>
+              <p className="text-indigo-100 text-lg">
+                Complete your skill assessment, take adaptive quizzes, and solve coding challenges to prove your eligibility.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                  <CheckCircle className="w-4 h-4" />
+                  Skill Assessment Form
+                </div>
+                <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                  <CheckCircle className="w-4 h-4" />
+                  Adaptive Quiz Questions
+                </div>
+                <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                  <CheckCircle className="w-4 h-4" />
+                  Coding Challenges
+                </div>
+                <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                  <CheckCircle className="w-4 h-4" />
+                  Final Evaluation
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/student/skill-assessment')}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-indigo-600 font-bold text-lg rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+            >
+              <Target className="w-6 h-6" />
+              Start Assessment Flow
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
         {/* Step 1: Attendance */}
         <section ref={attendanceRef} className="scroll-mt-24">
@@ -350,67 +437,113 @@ const StudentWorkflow = () => {
                 <p className="text-sm text-slate-400 mt-1">Check back soon for new assessments.</p>
               </div>
             ) : (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {quizzes.map((quiz) => {
-                  const attempt = quizAttempts.find(a => a.quiz?._id === quiz._id);
-                  const isCompleted = !!attempt;
+              <div className="mt-6 space-y-10">
+                {visibleLevels.map(level => {
+                  const levelQuizzes = quizzesByLevel[level] || [];
+                  const isPrimaryLevel = level === studentLevel;
+
+                  if (levelQuizzes.length === 0) {
+                    return null;
+                  }
 
                   return (
-                    <div
-                      key={quiz._id}
-                      className={`rounded-xl border p-5 shadow-sm transition-all ${
-                        isCompleted
-                          ? 'border-emerald-200 bg-emerald-50'
-                          : 'border-slate-200 bg-white hover:shadow-md'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${getDifficultyColor(quiz.difficulty)}`}>
-                          {getDifficultyIcon(quiz.difficulty)} {quiz.difficulty || 'Medium'}
-                        </span>
-                        <span className={`text-xs font-semibold ${isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
-                          {isCompleted ? 'Completed' : 'Pending'}
-                        </span>
+                    <div key={level}>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-bold text-slate-900">
+                            {level} Quizzes
+                          </h3>
+                          {!isPrimaryLevel && (
+                            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                              View only
+                            </span>
+                          )}
+                          {isPrimaryLevel && (
+                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                              Recommended for you
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500">
+                          {isPrimaryLevel
+                            ? 'Based on your recent performance, start here for the best progression.'
+                            : 'Explore quizzes one level away to preview what’s next.'}
+                        </p>
                       </div>
 
-                      <h3 className="text-lg font-bold text-slate-900 mt-4">{quiz.title || 'Untitled Quiz'}</h3>
-                      <p className="text-sm text-slate-600 mt-2 line-clamp-2">
-                        {quiz.description || 'No description available.'}
-                      </p>
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {levelQuizzes.map((quiz) => {
+                          const attempt = quizAttempts.find(a => a.quiz?._id === quiz._id);
+                          const isCompleted = !!attempt;
+                          const isReadOnly = !isPrimaryLevel && !isCompleted;
 
-                      <div className="mt-4 space-y-2 text-sm text-slate-500">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          <span>{quiz.duration || 0} minutes</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Award className="w-4 h-4" />
-                          <span>{quiz.totalPoints || 0} points</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="w-4 h-4" />
-                          <span>{quiz.questions?.length || 0} questions</span>
-                        </div>
-                      </div>
+                          return (
+                            <div
+                              key={quiz._id}
+                              className={`rounded-xl border p-5 shadow-sm transition-all ${
+                                isCompleted
+                                  ? 'border-emerald-200 bg-emerald-50'
+                                  : 'border-slate-200 bg-white hover:shadow-md'
+                              } ${isReadOnly ? 'opacity-70' : ''}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${getDifficultyColor(quiz.difficulty)}`}>
+                                  {getDifficultyIcon(quiz.difficulty)} {quiz.difficulty || 'Medium'}
+                                </span>
+                                <span className={`text-xs font-semibold ${isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                  {isCompleted ? 'Completed' : 'Pending'}
+                                </span>
+                              </div>
 
-                      <div className="mt-5">
-                        {isCompleted ? (
-                          <button
-                            onClick={() => navigate(`/student/quiz/${quiz._id}/results`)}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white text-emerald-700 font-semibold py-2.5 hover:bg-emerald-100 transition"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            View Results
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => navigate(`/student/quiz/${quiz._id}`)}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 text-white font-semibold py-2.5 hover:bg-slate-800 transition"
-                          >
-                            <Target className="w-4 h-4" />
-                            Start Quiz
-                          </button>
-                        )}
+                              <h3 className="text-lg font-bold text-slate-900 mt-4">{quiz.title || 'Untitled Quiz'}</h3>
+                              <p className="text-sm text-slate-600 mt-2 line-clamp-2">
+                                {quiz.description || 'No description available.'}
+                              </p>
+
+                              <div className="mt-4 space-y-2 text-sm text-slate-500">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{quiz.duration || 0} minutes</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Award className="w-4 h-4" />
+                                  <span>{quiz.totalPoints || 0} points</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="w-4 h-4" />
+                                  <span>{quiz.questions?.length || 0} questions</span>
+                                </div>
+                              </div>
+
+                              <div className="mt-5">
+                                {isCompleted ? (
+                                  <button
+                                    onClick={() => navigate(`/student/quiz/${quiz._id}/results`)}
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white text-emerald-700 font-semibold py-2.5 hover:bg-emerald-100 transition"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    View Results
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => !isReadOnly && navigate('/student/skill-assessment', {
+                                      state: { quizId: quiz._id, quizTitle: quiz.title }
+                                    })}
+                                    disabled={isReadOnly}
+                                    className={`w-full inline-flex items-center justify-center gap-2 rounded-lg font-semibold py-2.5 transition ${
+                                      isReadOnly
+                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                        : 'bg-slate-900 text-white hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    <Target className="w-4 h-4" />
+                                    {isReadOnly ? 'Locked' : 'Start Quiz'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -496,13 +629,17 @@ const StudentWorkflow = () => {
                         </div>
 
                         {question.quiz && (
-                          <button
-                            onClick={() => navigate(`/student/quiz/${question.quiz._id}/take`)}
-                            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                          >
-                            <BookOpen className="w-4 h-4" />
-                            Open full quiz
-                          </button>
+                          <div className="mt-4 flex gap-3">
+                            <button
+                              onClick={() => navigate('/student/skill-assessment', {
+                                state: { quizId: question.quiz._id, quizTitle: question.quiz.title }
+                              })}
+                              className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Take Full Quiz Assessment
+                            </button>
+                          </div>
                         )}
                       </div>
 

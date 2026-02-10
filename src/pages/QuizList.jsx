@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { quizAPI } from '../utils/api';
 import { 
@@ -14,11 +14,20 @@ import {
   Trophy,
   Filter,
   GraduationCap,
-  Library
+  Library,
+  Lock,
+  Unlock,
+  Star,
+  AlertCircle,
+  CheckSquare,
+  PlayCircle,
+  ShieldCheck,
+  Brain
 } from 'lucide-react';
 
 const QuizList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
   const [filteredQuizzes, setFilteredQuizzes] = useState([]);
@@ -30,17 +39,294 @@ const QuizList = () => {
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [error, setError] = useState(null);
+  const [studentLevel, setStudentLevel] = useState('Beginner');
+  const [showLockedQuizzes, setShowLockedQuizzes] = useState(true);
+  const [skillAssessment, setSkillAssessment] = useState(null);
+  const [topicFilter, setTopicFilter] = useState([]);
+  const [quizEligibility, setQuizEligibility] = useState({
+    isEligible: false,
+    requiredCompleted: 0,
+    requiredTotal: 0,
+    averageScore: 0,
+    message: ''
+  });
 
   console.log('Current user:', user);
   console.log('User role:', user?.role);
 
   useEffect(() => {
+    // Load skill assessment from localStorage or navigation state
+    const storedAssessment = localStorage.getItem('skillAssessment');
+    const navigationAssessment = location.state?.skillAssessment;
+    
+    const assessment = navigationAssessment || (storedAssessment ? JSON.parse(storedAssessment) : null);
+    
+    if (assessment) {
+      setSkillAssessment(assessment);
+      setTopicFilter(assessment.selectedTopics || []);
+      console.log('Loaded Skill Assessment:', assessment);
+      console.log('Topic Filter:', assessment.selectedTopics);
+    }
+  }, [location]);
+
+  useEffect(() => {
     fetchData();
   }, []);
 
+  // Derived filtered quizzes using useMemo to keep filtering reactive and stable
+  const computedFilteredQuizzes = React.useMemo(() => {
+    if (!quizzes || quizzes.length === 0) return [];
+
+    const difficultyFromRating = (rating) => {
+      if (!rating) return null;
+      if (rating >= 1 && rating <= 2) return 'Easy';
+      if (rating === 3) return 'Medium';
+      if (rating >= 4) return 'Hard';
+      return null;
+    };
+
+    const getRatingForTopic = (ratingsObj, topic) => {
+      if (!ratingsObj || !topic) return null;
+      if (ratingsObj[topic] !== undefined) return ratingsObj[topic];
+      const foundKey = Object.keys(ratingsObj).find(k => k.toLowerCase() === topic.toLowerCase());
+      if (foundKey) return ratingsObj[foundKey];
+      // common alias support
+      const aliases = {
+        javascript: ['js', 'javascript'],
+        backend: ['backend', 'node', 'node.js', 'express']
+      };
+      const t = topic.toLowerCase();
+      for (const aliasKey of Object.keys(aliases)) {
+        if (t === aliasKey || aliases[aliasKey].includes(t)) {
+          const foundAlias = Object.keys(ratingsObj).find(k => aliases[aliasKey].includes(k.toLowerCase()) || k.toLowerCase() === aliasKey);
+          if (foundAlias) return ratingsObj[foundAlias];
+        }
+      }
+      return null;
+    };
+
+    const getTopicDifficulty = (mapObj, topic) => {
+      if (!mapObj || !topic) return null;
+      if (mapObj[topic]) return mapObj[topic];
+      const found = Object.keys(mapObj).find(k => k.toLowerCase() === topic.toLowerCase());
+      if (found) return mapObj[found];
+      return null;
+    };
+
+    const mapQuestionToTopic = (q) => {
+      if (!q) return null;
+      const subject = (q.subject || q.category || q.topic || q.title || '').toString().toLowerCase();
+      const title = (q.title || '').toString().toLowerCase();
+
+      if (subject.includes('html') || title.includes('html')) return 'HTML';
+      if (subject.includes('css') || title.includes('css')) return 'CSS';
+      if (subject.includes('javascript') || subject.includes('js') || title.includes('javascript')) return 'JavaScript';
+      if (subject.includes('react') || title.includes('react')) return 'React';
+      if (subject.includes('backend') || subject.includes('node') || subject.includes('express') || title.includes('backend')) return 'Backend';
+      if (subject.includes('dsa') || subject.includes('algorithm') || subject.includes('data structure') || title.includes('dsa')) return 'DSA';
+      return null;
+    };
+
+    const visible = [];
+
+    for (const quiz of quizzes.filter(q => q && q._id)) {
+      if (quiz.preview === true || quiz.isPreview === true) continue;
+      if (isQuizLocked(quiz)) continue;
+
+      const quizTopic = mapQuizToTopic(quiz);
+      if (!quizTopic) continue;
+
+      const ratingForTopic = getRatingForTopic(skillAssessment?.ratings, quizTopic);
+      // If student has not rated this topic, skip
+      if (!ratingForTopic || ratingForTopic === 0) continue;
+
+      const expectedDifficulty = getTopicDifficulty(skillAssessment?.topicDifficultyMap, quizTopic) || difficultyFromRating(ratingForTopic);
+
+      const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
+      const matchingQuestions = allQuestions.filter((q) => {
+        const qTopic = mapQuestionToTopic(q) || mapQuizToTopic({ title: q.title || '', subject: q.subject || q.category });
+        const qDifficulty = q.difficulty || q.level || null;
+        if (!qTopic) return false;
+        if (qTopic !== quizTopic) return false;
+        if (expectedDifficulty && qDifficulty) return qDifficulty === expectedDifficulty;
+        return true;
+      });
+
+      const matchingCount = matchingQuestions.length;
+      const readyToStart = matchingCount >= 12;
+      const displayCount = Math.min(15, matchingCount);
+
+      visible.push({
+        ...quiz,
+        _derived: { quizTopic, expectedDifficulty, matchingCount, displayCount, readyToStart }
+      });
+    }
+
+    // Apply class/subject/difficulty filters
+    let finalList = visible;
+    if (selectedClass !== 'all') finalList = finalList.filter(q => q.class === selectedClass);
+    if (selectedSubject !== 'all') finalList = finalList.filter(q => q.subject === selectedSubject);
+    if (selectedDifficulty !== 'all') finalList = finalList.filter(q => q.difficulty === selectedDifficulty);
+
+    return finalList;
+  }, [quizzes, selectedClass, selectedSubject, selectedDifficulty, skillAssessment, topicFilter]);
+
+  // Keep filteredQuizzes state in sync (some render paths still use it)
   useEffect(() => {
-    filterQuizzes();
-  }, [selectedClass, selectedSubject, selectedDifficulty, quizzes]);
+    setFilteredQuizzes(computedFilteredQuizzes);
+  }, [computedFilteredQuizzes]);
+
+  useEffect(() => {
+    // Calculate student level based on attempts
+    if (attempts.length > 0) {
+      const level = calculateStudentLevel(attempts, stats);
+      setStudentLevel(level);
+    }
+  }, [attempts, stats]);
+
+  useEffect(() => {
+    // Calculate quiz eligibility
+    if (quizzes.length > 0 && attempts.length >= 0) {
+      const eligibility = calculateQuizEligibility(quizzes, attempts, stats);
+      setQuizEligibility(eligibility);
+    }
+  }, [quizzes, attempts, stats]);
+
+  const calculateQuizEligibility = (quizzes, attempts, stats) => {
+    // Categorize quizzes
+    const requiredQuizzes = quizzes.filter(q => q.category === 'JavaScript' || q.category === 'React'); // Example: Core subjects
+    const requiredTotal = requiredQuizzes.length;
+    
+    // Count completed required quizzes
+    const requiredCompleted = requiredQuizzes.filter(quiz => 
+      attempts.some(attempt => attempt.quiz && attempt.quiz._id === quiz._id && attempt.passed)
+    ).length;
+    
+    // Get average score
+    const averageScore = stats?.averageScore || 0;
+    
+    // Eligibility criteria:
+    // 1. All required quizzes completed
+    // 2. Average score >= 60%
+    const isEligible = requiredCompleted === requiredTotal && averageScore >= 60;
+    
+    let message = '';
+    if (isEligible) {
+      message = '✓ You are eligible for leave applications';
+    } else if (requiredCompleted < requiredTotal) {
+      message = `Complete ${requiredTotal - requiredCompleted} more required quiz(es)`;
+    } else if (averageScore < 60) {
+      message = `Improve your average score to 60% (current: ${averageScore}%)`;
+    }
+    
+    return {
+      isEligible,
+      requiredCompleted,
+      requiredTotal,
+      averageScore,
+      message
+    };
+  };
+
+  const categorizeQuiz = (quiz) => {
+    // Categorize based on subject/category
+    // Required: Core subjects (JavaScript, React, etc.)
+    // Practice: Additional topics
+    // Readiness: Final assessment (Hard difficulty)
+    
+    if (quiz.difficulty === 'Hard' && quiz.category === 'DSA') {
+      return 'readiness';
+    } else if (quiz.category === 'JavaScript' || quiz.category === 'React' || quiz.category === 'Node.js') {
+      return 'required';
+    } else {
+      return 'practice';
+    }
+  };
+
+  const getQuizCompletion = (quizId) => {
+    const attempt = attempts.find(a => a.quiz && a.quiz._id === quizId);
+    if (!attempt) return null;
+    
+    return {
+      completed: true,
+      passed: attempt.passed,
+      score: attempt.percentage,
+      attemptId: attempt._id
+    };
+  };
+
+  const isReadinessUnlocked = () => {
+    const requiredQuizzes = quizzes.filter(q => categorizeQuiz(q) === 'required');
+    const allRequiredCompleted = requiredQuizzes.every(quiz => 
+      attempts.some(attempt => attempt.quiz && attempt.quiz._id === quiz._id && attempt.passed)
+    );
+    return allRequiredCompleted;
+  };
+
+  // Map quiz subject/category to skill assessment topics
+  const mapQuizToTopic = (quiz) => {
+    if (!quiz) return null;
+    
+    const subject = (quiz.subject || quiz.category || '').toLowerCase();
+    const title = (quiz.title || '').toLowerCase();
+    
+    // Map quiz subjects to assessment topics
+    if (subject.includes('html') || title.includes('html')) return 'HTML';
+    if (subject.includes('css') || title.includes('css')) return 'CSS';
+    if (subject.includes('javascript') || subject.includes('js') || title.includes('javascript')) return 'JavaScript';
+    if (subject.includes('react') || title.includes('react')) return 'React';
+    if (subject.includes('backend') || subject.includes('node') || subject.includes('express') || title.includes('backend')) return 'Backend';
+    if (subject.includes('dsa') || subject.includes('algorithm') || subject.includes('data structure') || title.includes('dsa')) return 'DSA';
+    
+    // Default fallback
+    return null;
+  };
+
+  const calculateStudentLevel = (attempts, stats) => {
+    if (!attempts || attempts.length === 0) return 'Beginner';
+    
+    const avgScore = stats?.averageScore || 0;
+    const totalAttempts = attempts.length;
+    
+    // Level criteria:
+    // Advanced: 10+ attempts AND 85%+ avg score
+    // Intermediate: 5+ attempts AND 70%+ avg score
+    // Beginner: Otherwise
+    
+    if (totalAttempts >= 10 && avgScore >= 85) {
+      return 'Advanced';
+    } else if (totalAttempts >= 5 && avgScore >= 70) {
+      return 'Intermediate';
+    } else {
+      return 'Beginner';
+    }
+  };
+
+  const getQuizLevel = (quiz) => {
+    // Map difficulty to levels
+    // Easy → Beginner
+    // Medium → Intermediate
+    // Hard → Advanced
+    
+    const difficultyMap = {
+      'Easy': 'Beginner',
+      'Medium': 'Intermediate',
+      'Hard': 'Advanced'
+    };
+    
+    return difficultyMap[quiz.difficulty] || 'Beginner';
+  };
+
+  const isQuizLocked = (quiz) => {
+    const quizLevel = getQuizLevel(quiz);
+    const levelHierarchy = ['Beginner', 'Intermediate', 'Advanced'];
+    
+    const studentLevelIndex = levelHierarchy.indexOf(studentLevel);
+    const quizLevelIndex = levelHierarchy.indexOf(quizLevel);
+    
+    // Lock if quiz level is more than 1 level above student level
+    return quizLevelIndex > studentLevelIndex + 1;
+  };
 
   const fetchData = async () => {
     try {
@@ -54,7 +340,9 @@ const QuizList = () => {
       console.log('Quizzes response:', quizzesRes.data);
       console.log('Attempts response:', attemptsRes.data);
 
-      setQuizzes(quizzesRes.data.quizzes || []);
+      // Filter out any null or invalid quiz objects
+      const validQuizzes = (quizzesRes.data.quizzes || []).filter(quiz => quiz && quiz._id);
+      setQuizzes(validQuizzes);
       // Don't set filteredQuizzes here - let the useEffect handle it
       setAttempts(attemptsRes.data.attempts || []);
       setStats(attemptsRes.data.stats);
@@ -70,32 +358,153 @@ const QuizList = () => {
   };
 
   const filterQuizzes = () => {
-    console.log('Filtering quizzes...');
-    console.log('Quizzes array:', quizzes);
-    console.log('Selected class:', selectedClass);
-    console.log('Selected subject:', selectedSubject);
-    console.log('Selected difficulty:', selectedDifficulty);
-    
-    let filtered = [...quizzes];
-
-    if (selectedClass !== 'all') {
-      console.log('Filtering by class:', selectedClass);
-      filtered = filtered.filter(quiz => quiz.class === selectedClass);
+    // Derived filtering to satisfy: show only quizzes for rated topics, hide locked/preview/unrelated
+    if (!quizzes || quizzes.length === 0) {
+      setFilteredQuizzes([]);
+      return;
     }
 
-    if (selectedSubject !== 'all') {
-      console.log('Filtering by subject:', selectedSubject);
-      filtered = filtered.filter(quiz => quiz.subject === selectedSubject);
+    // helper: map a single question to a topic using same heuristics as mapQuizToTopic
+    const mapQuestionToTopic = (q) => {
+      if (!q) return null;
+      const subject = (q.subject || q.category || q.topic || q.title || '').toString().toLowerCase();
+      const title = (q.title || '').toString().toLowerCase();
+
+      if (subject.includes('html') || title.includes('html')) return 'HTML';
+      if (subject.includes('css') || title.includes('css')) return 'CSS';
+      if (subject.includes('javascript') || subject.includes('js') || title.includes('javascript')) return 'JavaScript';
+      if (subject.includes('react') || title.includes('react')) return 'React';
+      if (subject.includes('backend') || subject.includes('node') || subject.includes('express') || title.includes('backend')) return 'Backend';
+      if (subject.includes('dsa') || subject.includes('algorithm') || subject.includes('data structure') || title.includes('dsa')) return 'DSA';
+
+      return null;
+    };
+
+    const difficultyFromRating = (rating) => {
+      if (!rating) return null;
+      if (rating >= 1 && rating <= 2) return 'Easy';
+      if (rating === 3) return 'Medium';
+      if (rating >= 4) return 'Hard';
+      return null;
+    };
+
+    const visible = [];
+
+    for (const quiz of quizzes.filter(q => q && q._id)) {
+      // Exclude preview flag if present
+      if (quiz.preview === true || quiz.isPreview === true) continue;
+
+      // Exclude locked quizzes according to existing logic
+      if (isQuizLocked(quiz)) continue;
+
+      const quizTopic = mapQuizToTopic(quiz);
+      if (!quizTopic) continue; // unrelated
+
+      // Only include topics that the student rated (> 0)
+      const getRatingForTopic = (ratingsObj, topic) => {
+        if (!ratingsObj || !topic) return null;
+        // try exact
+        if (ratingsObj[topic] !== undefined) return ratingsObj[topic];
+        // try case-insensitive match
+        const foundKey = Object.keys(ratingsObj).find(k => k.toLowerCase() === topic.toLowerCase());
+        if (foundKey) return ratingsObj[foundKey];
+        // try some common aliases
+        const aliases = {
+          javascript: ['js', 'javascript'],
+          backend: ['backend', 'node.js', 'node', 'express']
+        };
+        const t = topic.toLowerCase();
+        for (const aliasKey of Object.keys(aliases)) {
+          if (t === aliasKey || aliases[aliasKey].includes(t)) {
+            const foundAlias = Object.keys(ratingsObj).find(k => aliases[aliasKey].includes(k.toLowerCase()) || k.toLowerCase() === aliasKey);
+            if (foundAlias) return ratingsObj[foundAlias];
+          }
+        }
+        return null;
+      };
+
+      const ratingForTopic = getRatingForTopic(skillAssessment?.ratings, quizTopic);
+      if (!ratingForTopic || ratingForTopic === 0) {
+        // debug: why skipped
+        console.debug('Skipping quiz due to zero rating for topic', quiz.title, quizTopic, 'ratingFound=', ratingForTopic);
+        continue;
+      }
+
+      const getTopicDifficulty = (mapObj, topic) => {
+        if (!mapObj || !topic) return null;
+        if (mapObj[topic]) return mapObj[topic];
+        const found = Object.keys(mapObj).find(k => k.toLowerCase() === topic.toLowerCase());
+        if (found) return mapObj[found];
+        return null;
+      };
+
+      const expectedDifficulty = getTopicDifficulty(skillAssessment?.topicDifficultyMap, quizTopic) || difficultyFromRating(ratingForTopic);
+
+      // Derive question-level topic/difficulty and count matches
+      const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
+
+      const matchingQuestions = allQuestions.filter((q) => {
+        const qTopic = mapQuestionToTopic(q) || mapQuizToTopic({ title: q.title || '', subject: q.subject || q.category });
+        const qDifficulty = q.difficulty || q.level || null;
+
+        if (!qTopic) return false;
+        if (qTopic !== quizTopic) return false;
+        if (expectedDifficulty && qDifficulty) return qDifficulty === expectedDifficulty;
+        // If question doesn't have explicit difficulty, accept it (we'll rely on count)
+        return true;
+      });
+
+      const matchingCount = matchingQuestions.length;
+
+      // Determine readiness: must have at least 12 matching questions
+      const readyToStart = matchingCount >= 12;
+
+      // Determine display count (cap at 15)
+      const displayCount = Math.min(15, matchingCount);
+
+      // Attach derived metadata so renderer can use it
+      visible.push({
+        ...quiz,
+        _derived: {
+          quizTopic,
+          expectedDifficulty,
+          matchingCount,
+          displayCount,
+          readyToStart
+        }
+      });
     }
 
-    if (selectedDifficulty !== 'all') {
-      console.log('Filtering by difficulty:', selectedDifficulty);
-      filtered = filtered.filter(quiz => quiz.difficulty === selectedDifficulty);
-    }
+    // Apply class/subject/difficulty filters on the derived list
+    let finalList = visible;
+    if (selectedClass !== 'all') finalList = finalList.filter(q => q.class === selectedClass);
+    if (selectedSubject !== 'all') finalList = finalList.filter(q => q.subject === selectedSubject);
+    if (selectedDifficulty !== 'all') finalList = finalList.filter(q => q.difficulty === selectedDifficulty);
 
-    console.log('Filtered result:', filtered.length, 'quizzes');
-    setFilteredQuizzes(filtered);
+    setFilteredQuizzes(finalList);
   };
+
+  useEffect(() => {
+    if (!quizzes || quizzes.length === 0) return;
+
+    const filtered = quizzes.filter((quiz) => {
+      const quizLevel = getQuizLevel(quiz);
+      const levelHierarchy = ['Beginner', 'Intermediate', 'Advanced'];
+
+      const studentLevelIndex = levelHierarchy.indexOf(studentLevel);
+      const quizLevelIndex = levelHierarchy.indexOf(quizLevel);
+
+      // Check if quiz is within the student's level range
+      const isWithinLevel = quizLevelIndex <= studentLevelIndex + 1;
+
+      // Check if quiz topic matches selected topics
+      const isTopicSelected = topicFilter.includes(quiz.topic);
+
+      return isWithinLevel && isTopicSelected;
+    });
+
+    setFilteredQuizzes(filtered);
+  }, [quizzes, studentLevel, topicFilter]);
 
   const getUniqueClasses = () => {
     const classes = [...new Set(quizzes.map(q => q.class).filter(Boolean))];
@@ -139,7 +548,7 @@ const QuizList = () => {
   };
 
   const isQuizAttempted = (quizId) => {
-    return attempts.some(attempt => attempt.quiz._id === quizId);
+    return attempts.some(attempt => attempt.quiz && attempt.quiz._id === quizId);
   };
 
   if (loading) {
@@ -206,13 +615,62 @@ const QuizList = () => {
             </h1>
             <p className="text-gray-600 mt-1">Test your knowledge and improve your skills</p>
           </div>
-          <button
-            onClick={() => navigate('/student/dashboard')}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition"
-          >
-            Back to Dashboard
-          </button>
+          <div className="flex items-center gap-3">
+            {!skillAssessment && (
+              <button
+                onClick={() => navigate('/student/skill-assessment')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-2"
+              >
+                <Brain className="w-4 h-4" />
+                Start Skill Assessment
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/student/dashboard')}
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition"
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
+
+        {/* Active Topic Filters (Skill Assessment) */}
+        {skillAssessment && topicFilter.length > 0 && (
+          <div className="bg-linear-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 mb-8 text-white">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <Brain className="w-6 h-6" />
+                  <h2 className="text-xl font-bold">Active Skill Assessment</h2>
+                </div>
+                <p className="text-blue-100 text-sm mb-4">
+                  Showing quizzes for your selected topics only. Unselected topics are hidden.
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {topicFilter.map(topic => (
+                    <div key={topic} className="bg-white text-gray-900 px-4 py-2 rounded-lg flex items-center gap-2">
+                      <span className="font-semibold">{topic}</span>
+                      <span className="text-sm text-gray-600">
+                        ({skillAssessment.topicDifficultyMap[topic]} - {skillAssessment.ratings[topic]}/5)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('skillAssessment');
+                  setSkillAssessment(null);
+                  setTopicFilter([]);
+                  navigate('/student/quizzes');
+                }}
+                className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition"
+              >
+                Clear Filter
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Statistics Cards */}
         {stats && (
@@ -250,6 +708,79 @@ const QuizList = () => {
             </div>
           </div>
         )}
+
+        {/* Student Level Indicator */}
+        <div className={`rounded-xl shadow-md p-6 mb-6 ${
+          studentLevel === 'Advanced' ? 'bg-linear-to-r from-purple-500 to-purple-600' :
+          studentLevel === 'Intermediate' ? 'bg-linear-to-r from-blue-500 to-blue-600' :
+          'bg-linear-to-r from-green-500 to-green-600'
+        } text-white`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white bg-opacity-20 rounded-lg">
+                <Star className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-sm opacity-90">Your Current Level</p>
+                <h3 className="text-3xl font-bold">{studentLevel}</h3>
+                <p className="text-sm opacity-90 mt-1">
+                  {studentLevel === 'Beginner' && 'Complete 5+ quizzes with 70%+ average to reach Intermediate'}
+                  {studentLevel === 'Intermediate' && 'Complete 10+ quizzes with 85%+ average to reach Advanced'}
+                  {studentLevel === 'Advanced' && 'You\'ve mastered the basics! Keep challenging yourself'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quiz Eligibility Status */}
+        <div className={`rounded-xl shadow-md p-6 mb-6 border-2 ${
+          quizEligibility.isEligible 
+            ? 'bg-green-50 border-green-300' 
+            : 'bg-yellow-50 border-yellow-300'
+        }`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4 flex-1">
+              <div className={`p-3 rounded-lg ${
+                quizEligibility.isEligible ? 'bg-green-200' : 'bg-yellow-200'
+              }`}>
+                {quizEligibility.isEligible ? (
+                  <ShieldCheck className="w-8 h-8 text-green-700" />
+                ) : (
+                  <AlertCircle className="w-8 h-8 text-yellow-700" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-xl font-bold mb-2 ${
+                  quizEligibility.isEligible ? 'text-green-900' : 'text-yellow-900'
+                }`}>
+                  Leave Application Eligibility
+                </h3>
+                <p className={`text-sm mb-3 ${
+                  quizEligibility.isEligible ? 'text-green-800' : 'text-yellow-800'
+                }`}>
+                  {quizEligibility.message}
+                </p>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="bg-white bg-opacity-60 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 mb-1">Required Quizzes</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {quizEligibility.requiredCompleted}/{quizEligibility.requiredTotal}
+                    </p>
+                  </div>
+                  <div className="bg-white bg-opacity-60 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 mb-1">Average Score</p>
+                    <p className={`text-2xl font-bold ${
+                      quizEligibility.averageScore >= 60 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {quizEligibility.averageScore}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-md p-1 mb-6 inline-flex">
@@ -390,150 +921,345 @@ const QuizList = () => {
           </div>
         )}
 
-        {/* Available Quizzes */}
+        {/* Available Quizzes - Structured by Type */}
         {activeTab === 'available' && (
-          <div>
-            {/* Debug Info */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-blue-900 mb-2">
-                <strong>Debug Info:</strong> Total quizzes loaded: {quizzes.length}, Filtered: {filteredQuizzes.length}
-              </p>
-              <p className="text-xs text-blue-700 mb-1">
-                <strong>User:</strong> {user?.name} | <strong>Role:</strong> {user?.role} | <strong>ID:</strong> {user?._id}
-              </p>
-              <p className="text-xs text-blue-700 mb-1">
-                <strong>Token:</strong> {localStorage.getItem('token') ? 'Present' : 'Missing'}
-              </p>
-              {quizzes.length > 0 && (
-                <p className="text-xs text-blue-700 mt-1">
-                  Sample: {quizzes[0]?.title} (Class: {quizzes[0]?.class}, Subject: {quizzes[0]?.subject})
-                </p>
-              )}
-              <button
-                onClick={fetchData}
-                className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-              >
-                Retry Fetch
-              </button>
-            </div>
-
-            {filteredQuizzes.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Quizzes Found</h3>
-                <p className="text-gray-600">
-                  {selectedClass !== 'all' || selectedSubject !== 'all' || selectedDifficulty !== 'all'
-                    ? 'No quizzes match your selected filters. Try different criteria.' 
-                    : 'No quizzes are currently available.'}
-                </p>
-                {(selectedClass !== 'all' || selectedSubject !== 'all' || selectedDifficulty !== 'all') && (
-                  <button
-                    onClick={() => {
-                      setSelectedClass('all');
-                      setSelectedSubject('all');
-                      setSelectedDifficulty('all');
-                    }}
-                    className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredQuizzes.map((quiz) => (
-                  <div
-                    key={quiz._id}
-                    className="bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border-t-4 border-blue-500"
-                  >
-                    {/* Quiz Header with Difficulty Badge */}
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-xl font-bold text-gray-900 flex-1 pr-2">{quiz.title}</h3>
-                        {isQuizAttempted(quiz._id) && (
-                          <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
-                        )}
-                      </div>
-
-                      {/* Difficulty Badge - Prominent */}
-                      <div className="mb-4">
-                        <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold ${getDifficultyColor(quiz.difficulty)}`}>
-                          <span className="text-lg">{getDifficultyIcon(quiz.difficulty)}</span>
-                          {quiz.difficulty}
-                        </span>
-                      </div>
-
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{quiz.description}</p>
-
-                      {/* Class and Subject Badges */}
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {quiz.class && (
-                          <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-semibold rounded-full flex items-center gap-1">
-                            <GraduationCap className="w-3 h-3" />
-                            {quiz.class}
-                          </span>
-                        )}
-                        {quiz.subject && (
-                          <span className="px-3 py-1 bg-teal-100 text-teal-800 text-xs font-semibold rounded-full flex items-center gap-1">
-                            <Library className="w-3 h-3" />
-                            {quiz.subject}
-                          </span>
-                        )}
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getCategoryColor(quiz.category)}`}>
-                          {quiz.category}
-                        </span>
-                      </div>
-
-                  <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between text-sm text-gray-700">
-                      <span className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-blue-600" />
-                        <span className="font-medium">Questions</span>
-                      </span>
-                      <span className="font-bold text-blue-600">{quiz.questions.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-gray-700">
-                      <span className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-orange-600" />
-                        <span className="font-medium">Duration</span>
-                      </span>
-                      <span className="font-bold text-orange-600">{quiz.duration} mins</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-gray-700">
-                      <span className="flex items-center gap-2">
-                        <Target className="w-4 h-4 text-green-600" />
-                        <span className="font-medium">Pass Score</span>
-                      </span>
-                      <span className="font-bold text-green-600">{quiz.passingScore}%</span>
-                    </div>
+          <div className="space-y-8">
+            {/* Section 1: Required Quizzes */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <CheckSquare className="w-6 h-6 text-red-600" />
                   </div>
-
-                  <button
-                    onClick={() => navigate(`/student/quiz/${quiz._id}`)}
-                    disabled={isQuizAttempted(quiz._id)}
-                    className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all ${
-                      isQuizAttempted(quiz._id)
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
-                    }`}
-                  >
-                    {isQuizAttempted(quiz._id) ? (
-                      <>
-                        <CheckCircle className="w-5 h-5" />
-                        Completed
-                      </>
-                    ) : (
-                      <>
-                        Start Quiz
-                        <ArrowRight className="w-5 h-5" />
-                      </>
-                    )}
-                  </button>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Required Quizzes</h2>
+                    <p className="text-sm text-gray-600">Must complete all for leave eligibility</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Progress</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {quizEligibility.requiredCompleted}/{quizEligibility.requiredTotal}
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
-            )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredQuizzes
+                  .filter(quiz => categorizeQuiz(quiz) === 'required')
+                  .map((quiz) => {
+                    const completion = getQuizCompletion(quiz._id);
+                    
+                    return (
+                      <div
+                        key={quiz._id}
+                        className={`bg-white rounded-xl border-2 hover:shadow-xl transition-all duration-300 overflow-hidden ${
+                          completion?.passed ? 'border-green-400' : 'border-red-300'
+                        }`}
+                      >
+                        <div className="p-5">
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <h3 className="text-lg font-bold text-gray-900 flex-1">{quiz.title}</h3>
+                            {completion?.passed && (
+                              <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
+                            )}
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="mb-3">
+                            {completion ? (
+                              completion.passed ? (
+                                <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                                  ✓ Completed - {completion.score}%
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">
+                                  Failed - {completion.score}% (Retry Available)
+                                </span>
+                              )
+                            ) : (
+                              <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
+                                Not Started
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{quiz.description}</p>
+
+                          {/* Quiz Details */}
+                          <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-lg text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Questions:</span>
+                              <span className="font-bold">{quiz._derived ? quiz._derived.displayCount : quiz.questions.length}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Duration:</span>
+                              <span className="font-bold">{quiz.duration} mins</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Pass Score:</span>
+                              <span className="font-bold">{quiz.passingScore}%</span>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="mb-2">
+                            {!quiz._derived?.readyToStart && (
+                              <p className="text-sm text-red-600 mb-2">
+                                Not enough topic-matched questions ({quiz._derived?.matchingCount || 0}) — minimum 12 required.
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (!skillAssessment) {
+                                navigate(`/student/skill-assessment`, { state: { quizId: quiz._id, quizTitle: quiz.title } });
+                                return;
+                              }
+                              if (!quiz._derived?.readyToStart) {
+                                alert('This quiz does not have enough topic-matched questions (minimum 12) to start.');
+                                return;
+                              }
+                              navigate(`/student/quiz/${quiz._id}`);
+                            }}
+                            disabled={!quiz._derived?.readyToStart}
+                            className={`w-full py-2.5 px-4 rounded-lg font-semibold transition-all ${
+                              !quiz._derived?.readyToStart ? 'opacity-60 cursor-not-allowed' : ''
+                            } ${
+                              completion?.passed
+                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                : 'bg-red-600 text-white hover:bg-red-700'
+                            }`}
+                          >
+                            {completion?.passed ? 'Retake Quiz' : completion ? 'Retry Now' : 'Start Quiz'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {filteredQuizzes.filter(q => categorizeQuiz(q) === 'required').length === 0 && (
+                <p className="text-center text-gray-500 py-8">No required quizzes available</p>
+              )}
+            </div>
+
+            {/* Section 2: Practice Quizzes */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <PlayCircle className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Practice Quizzes</h2>
+                    <p className="text-sm text-gray-600">Optional - No eligibility impact</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredQuizzes
+                  .filter(quiz => categorizeQuiz(quiz) === 'practice')
+                  .map((quiz) => {
+                    const completion = getQuizCompletion(quiz._id);
+                    
+                    return (
+                      <div
+                        key={quiz._id}
+                        className="bg-white rounded-xl border-2 border-blue-200 hover:shadow-xl transition-all duration-300 overflow-hidden"
+                      >
+                        <div className="p-5">
+                          <div className="flex items-start justify-between mb-3">
+                            <h3 className="text-lg font-bold text-gray-900 flex-1">{quiz.title}</h3>
+                            {completion && (
+                              <CheckCircle className="w-6 h-6 text-blue-600 shrink-0" />
+                            )}
+                          </div>
+
+                          <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full mb-3">
+                            Optional Practice
+                          </span>
+
+                          {completion && (
+                            <p className="text-sm text-gray-600 mb-2">
+                              Last score: <span className="font-bold">{completion.score}%</span>
+                            </p>
+                          )}
+
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{quiz.description}</p>
+
+                          <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-lg text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Questions:</span>
+                              <span className="font-bold">{quiz._derived ? quiz._derived.displayCount : quiz.questions.length}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Duration:</span>
+                              <span className="font-bold">{quiz.duration} mins</span>
+                            </div>
+                          </div>
+
+                          <div className="mb-2">
+                            {!quiz._derived?.readyToStart && (
+                              <p className="text-sm text-red-600 mb-2">
+                                Not enough topic-matched questions ({quiz._derived?.matchingCount || 0}) — minimum 12 required.
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (!skillAssessment) {
+                                navigate(`/student/skill-assessment`, { state: { quizId: quiz._id, quizTitle: quiz.title } });
+                                return;
+                              }
+                              if (!quiz._derived?.readyToStart) {
+                                alert('This practice quiz does not have enough topic-matched questions (minimum 12) to start.');
+                                return;
+                              }
+                              navigate(`/student/quiz/${quiz._id}`);
+                            }}
+                            disabled={!quiz._derived?.readyToStart}
+                            className={`w-full py-2.5 px-4 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all ${!quiz._derived?.readyToStart ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          >
+                            {completion ? 'Practice Again' : 'Start Practice'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {filteredQuizzes.filter(q => categorizeQuiz(q) === 'practice').length === 0 && (
+                <p className="text-center text-gray-500 py-8">No practice quizzes available</p>
+              )}
+            </div>
+
+            {/* Section 3: Readiness Assessment */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <ShieldCheck className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Readiness Assessment</h2>
+                    <p className="text-sm text-gray-600">Final gate - Unlocks after completing all required quizzes</p>
+                  </div>
+                </div>
+                {!isReadinessUnlocked() && (
+                  <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg flex items-center gap-2">
+                    <Lock className="w-4 h-4" />
+                    Locked
+                  </span>
+                )}
+              </div>
+
+              {!isReadinessUnlocked() ? (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-8 text-center">
+                  <Lock className="w-16 h-16 text-yellow-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-yellow-900 mb-2">Complete All Required Quizzes First</h3>
+                  <p className="text-yellow-800 mb-4">
+                    You need to pass all {quizEligibility.requiredTotal} required quizzes before attempting the readiness assessment.
+                  </p>
+                  <p className="text-yellow-700 text-sm">
+                    Progress: {quizEligibility.requiredCompleted}/{quizEligibility.requiredTotal} completed
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredQuizzes
+                    .filter(quiz => categorizeQuiz(quiz) === 'readiness')
+                    .map((quiz) => {
+                      const completion = getQuizCompletion(quiz._id);
+                      
+                      return (
+                        <div
+                          key={quiz._id}
+                          className={`bg-white rounded-xl border-2 hover:shadow-xl transition-all duration-300 overflow-hidden ${
+                            completion?.passed ? 'border-green-400' : 'border-purple-300'
+                          }`}
+                        >
+                          <div className="p-5">
+                            <div className="flex items-start justify-between mb-3">
+                              <h3 className="text-lg font-bold text-gray-900 flex-1">{quiz.title}</h3>
+                              {completion?.passed && (
+                                <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
+                              )}
+                            </div>
+
+                            <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full mb-3">
+                              Final Assessment
+                            </span>
+
+                            {completion && (
+                              <p className="text-sm text-gray-600 mb-2">
+                                Score: <span className={`font-bold ${completion.passed ? 'text-green-600' : 'text-red-600'}`}>
+                                  {completion.score}%
+                                </span>
+                              </p>
+                            )}
+
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{quiz.description}</p>
+
+                            <div className="space-y-2 mb-4 bg-gray-50 p-3 rounded-lg text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Questions:</span>
+                                <span className="font-bold">{quiz._derived ? quiz._derived.displayCount : quiz.questions.length}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Duration:</span>
+                                <span className="font-bold">{quiz.duration} mins</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Pass Score:</span>
+                                <span className="font-bold">{quiz.passingScore}%</span>
+                              </div>
+                            </div>
+
+                            <div className="mb-2">
+                              {!quiz._derived?.readyToStart && (
+                                <p className="text-sm text-red-600 mb-2">
+                                  Not enough topic-matched questions ({quiz._derived?.matchingCount || 0}) — minimum 12 required.
+                                </p>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (!skillAssessment) {
+                                  navigate(`/student/skill-assessment`, { state: { quizId: quiz._id, quizTitle: quiz.title } });
+                                  return;
+                                }
+                                if (!quiz._derived?.readyToStart) {
+                                  alert('This readiness assessment does not have enough topic-matched questions (minimum 12) to start.');
+                                  return;
+                                }
+                                navigate(`/student/quiz/${quiz._id}`);
+                              }}
+                              disabled={!quiz._derived?.readyToStart}
+                              className={`w-full py-2.5 px-4 rounded-lg font-semibold transition-all ${!quiz._derived?.readyToStart ? 'opacity-60 cursor-not-allowed' : ''} ${
+                                completion?.passed
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-purple-600 text-white hover:bg-purple-700'
+                              }`}
+                            >
+                              {completion?.passed ? 'Retake Assessment' : completion ? 'Retry Assessment' : 'Start Assessment'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {filteredQuizzes.filter(q => categorizeQuiz(q) === 'readiness').length === 0 && (
+                <p className="text-center text-gray-500 py-8">No readiness assessments available</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -556,11 +1282,11 @@ const QuizList = () => {
                   {attempts.map((attempt) => (
                     <tr key={attempt._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{attempt.quiz.title}</div>
+                        <div className="font-medium text-gray-900">{attempt.quiz?.title || 'Unknown Quiz'}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getCategoryColor(attempt.quiz.category)}`}>
-                          {attempt.quiz.category}
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getCategoryColor(attempt.quiz?.category)}`}>
+                          {attempt.quiz?.category || 'N/A'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -586,13 +1312,17 @@ const QuizList = () => {
                         {new Date(attempt.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => navigate(`/student/quiz/${attempt.quiz._id}/results`)}
-                          className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1"
-                        >
-                          <Award className="w-4 h-4" />
-                          View Results
-                        </button>
+                        {attempt.quiz ? (
+                          <button
+                            onClick={() => navigate(`/student/quiz/${attempt.quiz._id}/results`)}
+                            className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1"
+                          >
+                            <Award className="w-4 h-4" />
+                            View Results
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Quiz not available</span>
+                        )}
                       </td>
                     </tr>
                   ))}
